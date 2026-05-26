@@ -31,7 +31,9 @@ CLIENT_CODE = ""
 PIN = ""
 TOTP_SECRET = ""
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "api_config.json")
+# Check if running in a container with a persistent /data mount (e.g. Railway)
+DATA_DIR = "/data" if os.path.exists("/data") else os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(DATA_DIR, "api_config.json")
 
 def load_credentials():
     global API_KEY, CLIENT_CODE, PIN, TOTP_SECRET
@@ -1516,7 +1518,8 @@ def set_config(config: APIConfig):
     return {"success": False, "message": "Failed to save credentials"}
 
 # ─── DATABASE AND STORAGE MANAGEMENT (SQLite) ───
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trades.db")
+DATA_DIR = "/data" if os.path.exists("/data") else os.path.dirname(os.path.abspath(__file__))
+DB_FILE = os.path.join(DATA_DIR, "trades.db")
 TRADES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trades_data.json")
 
 # In-memory dict to track last saved tick time and values to prevent database bloat
