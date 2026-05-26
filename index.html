@@ -1,0 +1,3023 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Auto Synthetic Future Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0a1c;
+            color: #ffffff;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .calc-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .dark-card {
+            background-color: #1a1625;
+            border: 1px solid #2d2640;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .chart-card {
+            background-color: #1a1625;
+            border: 1px solid #2d2640;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 16px;
+            height: 300px;
+            position: relative;
+        }
+
+        .data-label {
+            color: #8b85a1;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 600;
+        }
+
+        .value-green { color: #10b981; }
+        .value-red { color: #ef4444; }
+        .value-white { color: #ffffff; }
+
+        .strike-pill {
+            background-color: #1a2f2e;
+            color: #22c55e;
+            padding: 6px 16px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .ce-pe-box {
+            background-color: #231b2e;
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .status-dot {
+            height: 8px;
+            width: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-live { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+        .status-fetching { background-color: #f59e0b; animation: pulse 1.5s infinite; }
+        .status-error { background-color: #ef4444; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.4; }
+            100% { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Symbol search input styling */
+        .symbol-search-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #2d2640;
+        }
+        .symbol-search-input {
+            flex: 1;
+            background: #0f0a1c;
+            border: 1.5px solid #2d2640;
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #fff;
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .symbol-search-input::placeholder {
+            color: #5a5478;
+            font-weight: 500;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+        .symbol-search-input:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+        }
+        .symbol-go-btn {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            border: none;
+            border-radius: 10px;
+            padding: 10px 16px;
+            color: #fff;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .symbol-go-btn:hover {
+            background: linear-gradient(135deg, #6d28d9, #5b21b6);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+        .symbol-go-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .box-status-badge {
+            font-size: 0.65rem;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .box-status-live {
+            background: rgba(16, 185, 129, 0.12);
+            color: #10b981;
+        }
+        .box-status-loading {
+            background: rgba(245, 158, 11, 0.12);
+            color: #f59e0b;
+        }
+        .box-status-error {
+            background: rgba(239, 68, 68, 0.12);
+            color: #ef4444;
+        }
+        .box-status-idle {
+            background: rgba(139, 133, 161, 0.12);
+            color: #8b85a1;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="calc-container">
+        
+        <!-- Header -->
+        <div class="top-bar">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">Auto-Calc</h1>
+                <div class="flex items-center mt-1">
+                    <span id="statusDot" class="status-dot status-idle"></span>
+                    <span id="statusText" class="data-label text-xs">Ready</span>
+                    <span id="serverIpDisplay" class="ml-4 data-label text-xs font-mono bg-[#1a2f2e] text-green-400 px-2 py-0.5 rounded border border-green-800 hidden" title="Local Network IP"></span>
+                </div>
+            </div>
+
+            <div class="flex gap-3 items-center flex-wrap mr-4">
+                <a href="index.html" class="flex gap-2 items-center bg-[rgba(52,211,153,0.15)] border border-emerald-500 text-emerald-400 px-3 py-1.5 rounded-lg transition no-underline font-bold text-sm">
+                    <i class="ph ph-chart-line"></i> Auto-Calc
+                </a>
+                <a href="scanner.html" class="flex gap-2 items-center bg-[rgba(167,139,250,0.05)] hover:bg-[rgba(167,139,250,0.15)] border border-transparent hover:border-[rgba(167,139,250,0.4)] text-purple-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-magnifying-glass"></i> Scanner
+                </a>
+                <a href="analyzer.html" class="flex gap-2 items-center bg-[rgba(96,165,250,0.05)] hover:bg-[rgba(96,165,250,0.15)] border border-transparent hover:border-[rgba(96,165,250,0.4)] text-blue-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-chart-polar"></i> Analyzer
+                </a>
+                <a href="historical.html" class="flex gap-2 items-center bg-[rgba(244,114,182,0.05)] hover:bg-[rgba(244,114,182,0.15)] border border-transparent hover:border-[rgba(244,114,182,0.4)] text-pink-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-clock-counter-clockwise"></i> Historical Chart
+                </a>
+                <a href="historical_pd.html" class="flex gap-2 items-center bg-[rgba(251,191,36,0.05)] hover:bg-[rgba(251,191,36,0.15)] border border-transparent hover:border-[rgba(251,191,36,0.4)] text-amber-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-trend-up"></i> P/D Chart
+                </a>
+                <a href="position_calculator.html" class="flex gap-2 items-center bg-[rgba(129,140,248,0.05)] hover:bg-[rgba(129,140,248,0.15)] border border-transparent hover:border-[rgba(129,140,248,0.4)] text-indigo-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-calculator"></i> Position Calc
+                </a>
+                <a href="settings.html" class="flex gap-2 items-center bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] border border-transparent hover:border-[rgba(255,255,255,0.4)] text-gray-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-gear"></i> Settings
+                </a>
+
+            </div>
+            <div class="text-right">
+                    <div class="data-label">Last Updated</div>
+                    <div id="lastUpdateTime" class="text-sm font-medium">--:--:--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Today's Performance Summary -->
+        <div class="dark-card mb-6" style="padding: 16px 24px;">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <div>
+                        <div class="data-label text-xs">Today's Total P/L</div>
+                        <div class="flex items-center gap-3 mt-1">
+                            <div id="globalTotalPnL" class="text-2xl font-black tracking-tight text-gray-300">₹ 0.00</div>
+                            <button onclick="openTradeHistoryModal()" class="bg-[#231b2e] hover:bg-[#2d2640] border border-[#2d2640] hover:border-indigo-500/40 text-indigo-400 text-xs font-bold px-3 py-1.5 rounded-lg transition flex items-center gap-1.5" title="View trade records database">
+                                <i class="ph ph-database" style="font-size:0.95rem;"></i> Database History
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div id="stockWisePnLContainer" class="flex flex-wrap gap-3 items-center justify-end w-full md:w-auto">
+                    <div class="text-sm text-gray-500 italic">No trades today</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculators Grid Container -->
+        <div id="calculatorsGrid" class="grid grid-cols-1 lg:grid-cols-1 gap-6 w-full mb-4">
+
+            <!-- ================= Box 1 ================= -->
+            <div id="resultBox0" class="fade-in">
+                <div class="dark-card">
+                    <!-- Symbol Search -->
+                    <div class="symbol-search-wrap">
+                        <input type="text" id="symbolInput0" class="symbol-search-input" 
+                               placeholder="NIFTY, RELIANCE..." value="NIFTY" autocomplete="off" spellcheck="false">
+                        <button id="symbolGoBtn0" class="symbol-go-btn" onclick="startBox(0)">
+                            <i class="ph ph-play-circle"></i> Go
+                        </button>
+                    </div>
+
+                    <!-- Status Badge -->
+                    <div class="flex items-center justify-between mb-3">
+                        <span id="boxStatus0" class="box-status-badge box-status-idle">
+                            <span class="status-dot" style="width:6px;height:6px;margin:0;"></span> Idle
+                        </span>
+                        <select id="expirySelect0" class="bg-[#1a2f2e] text-green-400 border border-green-800 focus:border-green-400 rounded px-2 py-1 text-xs font-bold outline-none transition cursor-pointer" onchange="triggerFetch(0)" style="display:none;"></select>
+                        <span id="expiryLabel0" class="data-label" style="font-size:0.7rem;"></span>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="flex items-center justify-center gap-2 mb-4">
+                            <div class="strike-pill" style="margin-bottom:0;" id="atmStrikeDisplay0">ATM STRIKE: --</div>
+                            <input type="number" id="strikeInput0" placeholder="Custom Strike" title="Leave blank for Auto ATM Strike" class="bg-[#1a2f2e] text-green-400 border border-green-800 focus:border-green-400 rounded px-2 py-1.5 text-sm font-bold outline-none w-32 text-center transition" onchange="triggerFetch(0)">
+                        </div>
+                        
+                        <div class="text-5xl font-bold mb-8 flex items-center justify-center">
+                            <span class="text-blue-500 text-3xl mr-1">₹</span>
+                            <span id="synthResult0" class="tracking-tight">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- CE / PE Row -->
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="ce-pe-box">
+                            <div class="data-label mb-1">Live CE</div>
+                            <div id="ceResult0" class="text-xl font-bold value-green">₹0.00</div>
+                        </div>
+                        <div class="ce-pe-box">
+                            <div class="data-label mb-1">Live PE</div>
+                            <div id="peResult0" class="text-xl font-bold value-red">₹0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Spot / Premium Row -->
+                    <div class="flex justify-between items-center px-4 pt-4 border-t border-[#2d2640]">
+                        <div>
+                            <div class="data-label mb-1">Spot Price</div>
+                            <div class="text-lg font-semibold">
+                                <span id="spotResult0">₹0.00</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="data-label mb-1">Premium/Discount</div>
+                            <div id="diffResult0" class="text-lg font-bold">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Alert Rows: Upside & Downside Monitors -->
+                    <div class="px-4 pt-4 mt-4 border-t border-[#2d2640]">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-1.5">
+                                <i class="ph ph-trend-up text-green-400" style="font-size:0.85rem;"></i>
+                                <span class="data-label text-xs" style="color:#34d399;">Upside Monitor</span>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="alertUpTarget0" placeholder="+20" step="5" class="w-20 bg-[#0f0a1c] border border-[#2d2640] rounded px-2 py-1 text-white text-sm outline-none focus:border-green-500">
+                                <button id="setAlertUpBtn0" class="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded transition" onclick="configureAlert(0,'up')">Set</button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-1.5">
+                                <i class="ph ph-trend-down text-red-400" style="font-size:0.85rem;"></i>
+                                <span class="data-label text-xs" style="color:#f87171;">Downside Monitor</span>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="alertDownTarget0" placeholder="-20" step="5" class="w-20 bg-[#0f0a1c] border border-[#2d2640] rounded px-2 py-1 text-white text-sm outline-none focus:border-red-500">
+                                <button id="setAlertDownBtn0" class="bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded transition" onclick="configureAlert(0,'down')">Set</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Position Tracker Mini Panel -->
+                    <div class="px-4 pt-4 mt-4 border-t border-[#2d2640] pb-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="data-label text-xs">Live Arb Tracker</span>
+                            <div class="flex gap-2 items-center">
+                                <select id="liveDir0" class="bg-[#0f0a1c] border border-[#2d2640] rounded text-[10px] uppercase font-bold px-1 py-0.5 text-indigo-300 outline-none">
+                                    <option value="long">Long Synth</option>
+                                    <option value="short">Short Synth</option>
+                                </select>
+                                <input type="number" id="liveLots0" value="1" min="1" class="w-10 bg-[#0f0a1c] border border-[#2d2640] rounded px-1 py-0.5 text-white text-[10px] outline-none text-center" title="Lots" onchange="updateQty(0)">
+                                <span class="text-[10px] text-gray-500 font-bold mx-0.5">x</span>
+                                <input type="number" id="liveLotMult0" value="50" class="w-12 bg-[#0f0a1c] border border-[#2d2640] rounded px-1 py-0.5 text-gray-400 text-[10px] outline-none text-center" title="Lot Size" onchange="updateQty(0)">
+                                <span class="text-[10px] text-gray-500 font-bold ml-1 mr-1">=</span>
+                                <span id="liveTotalQty0" class="text-[10px] text-white font-bold w-6 text-left" title="Total Qty">50</span>
+                                <button id="btnLiveEntry0" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded transition" onclick="enterLivePos(0)">Enter</button>
+                                <button id="btnLiveExit0" class="bg-red-600 hover:bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded transition hidden" onclick="exitLivePos(0)">Exit</button>
+                            </div>
+                        </div>
+                        <div id="livePanel0" class="bg-gradient-to-r from-[#1a1625] to-[#231b2e] rounded border border-indigo-500/20 p-2 hidden">
+                            <div class="flex justify-between items-center px-1">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Live P/L</span>
+                                    <span id="liveNetPnL0" class="text-xl font-mono font-black tracking-tight" style="color: #8b85a1;">₹ 0.00</span>
+                                </div>
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Entry Prices (<span id="liveLockStrike0" class="text-indigo-400"></span>)</span>
+                                    <span class="text-[10px] text-gray-400 font-mono">S: <span id="liveEntrySpot0">0</span> | C: <span id="liveEntryCall0">0</span> | P: <span id="liveEntryPut0">0</span> | P/D: <span id="liveEntryPD0" class="text-white">0</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Toggle Header -->
+                <div class="flex justify-between items-center mt-4 mb-2 px-2">
+                    <div class="flex items-center gap-2">
+                        <span class="data-label opacity-70">Premium/Discount History</span>
+                        <button id="toggleAllExpiries0" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-amber-400 transition cursor-pointer bg-transparent border border-[#2d2640] hover:border-amber-500/40 rounded px-2 py-0.5" onclick="toggleAllExpiries(0)" title="Show all expiry data on chart">
+                            <i class="ph ph-stack"></i> Show All
+                        </button>
+                    </div>
+                    <button id="toggleChart0" class="text-xs flex items-center gap-1 text-[#8b85a1] hover:text-white transition cursor-pointer bg-transparent border-0 p-1" onclick="toggleChart(0)">
+                        <i class="ph ph-caret-down"></i> Hide Chart
+                    </button>
+                </div>
+
+                <!-- Chart Container -->
+                <div id="chartContainer0" class="chart-card fade-in mt-0">
+                    <div class="absolute top-2 right-2 z-20 flex gap-2">
+                        <button onclick="importChartData(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Import Open Trades (CSV)">
+                            <i class="ph ph-file-arrow-up"></i>
+                        </button>
+                        <button onclick="exportChartData(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Export CSV">
+                            <i class="ph ph-file-csv"></i>
+                        </button>
+                        <button onclick="resetChartZoom(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Reset Zoom">
+                            <i class="ph ph-arrows-counter-clockwise"></i>
+                        </button>
+                        <button onclick="clearChartData(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 transition" title="Clear Chart">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                    </div>
+                    <canvas id="miniCalcChart0"></canvas>
+                </div>
+                <!-- Trade Details -->
+                <div class="px-2 mt-4 mb-2">
+                    <span class="data-label opacity-70">Today's Trades</span>
+                    <div id="tradeDetailsContainer0" class="mt-2 text-sm text-gray-300">
+                        <div class="text-gray-500 italic py-2 text-center border border-[#2d2640] rounded bg-[#1a1625]">No trades recorded for today</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= Box 2 ================= -->
+            <div id="resultBox1" class="fade-in hidden">
+                <div class="dark-card">
+                    <!-- Symbol Search -->
+                    <div class="symbol-search-wrap">
+                        <input type="text" id="symbolInput1" class="symbol-search-input" 
+                               placeholder="BANKNIFTY, HDFCBANK..." value="" autocomplete="off" spellcheck="false">
+                        <button id="symbolGoBtn1" class="symbol-go-btn" onclick="startBox(1)">
+                            <i class="ph ph-play-circle"></i> Go
+                        </button>
+                    </div>
+
+                    <!-- Status Badge -->
+                    <div class="flex items-center justify-between mb-3">
+                        <span id="boxStatus1" class="box-status-badge box-status-idle">
+                            <span class="status-dot" style="width:6px;height:6px;margin:0;"></span> Idle
+                        </span>
+                        <select id="expirySelect1" class="bg-[#1a2f2e] text-green-400 border border-green-800 focus:border-green-400 rounded px-2 py-1 text-xs font-bold outline-none transition cursor-pointer" onchange="triggerFetch(1)" style="display:none;"></select>
+                        <span id="expiryLabel1" class="data-label" style="font-size:0.7rem;"></span>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="flex items-center justify-center gap-2 mb-4">
+                            <div class="strike-pill" style="margin-bottom:0;" id="atmStrikeDisplay1">ATM STRIKE: --</div>
+                            <input type="number" id="strikeInput1" placeholder="Custom Strike" title="Leave blank for Auto ATM Strike" class="bg-[#1a2f2e] text-green-400 border border-green-800 focus:border-green-400 rounded px-2 py-1.5 text-sm font-bold outline-none w-32 text-center transition" onchange="triggerFetch(1)">
+                        </div>
+                        
+                        <div class="text-5xl font-bold mb-8 flex items-center justify-center">
+                            <span class="text-purple-400 text-3xl mr-1">₹</span>
+                            <span id="synthResult1" class="tracking-tight">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- CE / PE Row -->
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="ce-pe-box">
+                            <div class="data-label mb-1">Live CE</div>
+                            <div id="ceResult1" class="text-xl font-bold value-green">₹0.00</div>
+                        </div>
+                        <div class="ce-pe-box">
+                            <div class="data-label mb-1">Live PE</div>
+                            <div id="peResult1" class="text-xl font-bold value-red">₹0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Spot / Premium Row -->
+                    <div class="flex justify-between items-center px-4 pt-4 border-t border-[#2d2640]">
+                        <div>
+                            <div class="data-label mb-1">Spot Price</div>
+                            <div class="text-lg font-semibold">
+                                <span id="spotResult1">₹0.00</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="data-label mb-1">Premium/Discount</div>
+                            <div id="diffResult1" class="text-lg font-bold">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Alert Rows: Upside & Downside Monitors -->
+                    <div class="px-4 pt-4 mt-4 border-t border-[#2d2640]">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-1.5">
+                                <i class="ph ph-trend-up text-green-400" style="font-size:0.85rem;"></i>
+                                <span class="data-label text-xs" style="color:#34d399;">Upside Monitor</span>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="alertUpTarget1" placeholder="+20" step="5" class="w-20 bg-[#0f0a1c] border border-[#2d2640] rounded px-2 py-1 text-white text-sm outline-none focus:border-green-500">
+                                <button id="setAlertUpBtn1" class="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded transition" onclick="configureAlert(1,'up')">Set</button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-1.5">
+                                <i class="ph ph-trend-down text-red-400" style="font-size:0.85rem;"></i>
+                                <span class="data-label text-xs" style="color:#f87171;">Downside Monitor</span>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="alertDownTarget1" placeholder="-20" step="5" class="w-20 bg-[#0f0a1c] border border-[#2d2640] rounded px-2 py-1 text-white text-sm outline-none focus:border-red-500">
+                                <button id="setAlertDownBtn1" class="bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded transition" onclick="configureAlert(1,'down')">Set</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Position Tracker Mini Panel -->
+                    <div class="px-4 pt-4 mt-4 border-t border-[#2d2640] pb-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="data-label text-xs">Live Arb Tracker</span>
+                            <div class="flex gap-2 items-center">
+                                <select id="liveDir1" class="bg-[#0f0a1c] border border-[#2d2640] rounded text-[10px] uppercase font-bold px-1 py-0.5 text-indigo-300 outline-none">
+                                    <option value="long">Long Synth</option>
+                                    <option value="short">Short Synth</option>
+                                </select>
+                                <input type="number" id="liveLots1" value="1" min="1" class="w-10 bg-[#0f0a1c] border border-[#2d2640] rounded px-1 py-0.5 text-white text-[10px] outline-none text-center" title="Lots" onchange="updateQty(1)">
+                                <span class="text-[10px] text-gray-500 font-bold mx-0.5">x</span>
+                                <input type="number" id="liveLotMult1" value="50" class="w-12 bg-[#0f0a1c] border border-[#2d2640] rounded px-1 py-0.5 text-gray-400 text-[10px] outline-none text-center" title="Lot Size" onchange="updateQty(1)">
+                                <span class="text-[10px] text-gray-500 font-bold ml-1 mr-1">=</span>
+                                <span id="liveTotalQty1" class="text-[10px] text-white font-bold w-6 text-left" title="Total Qty">50</span>
+                                <button id="btnLiveEntry1" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded transition" onclick="enterLivePos(1)">Enter</button>
+                                <button id="btnLiveExit1" class="bg-red-600 hover:bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded transition hidden" onclick="exitLivePos(1)">Exit</button>
+                            </div>
+                        </div>
+                        <div id="livePanel1" class="bg-gradient-to-r from-[#1a1625] to-[#231b2e] rounded border border-indigo-500/20 p-2 hidden">
+                            <div class="flex justify-between items-center px-1">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Live P/L</span>
+                                    <span id="liveNetPnL1" class="text-xl font-mono font-black tracking-tight" style="color: #8b85a1;">₹ 0.00</span>
+                                </div>
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Entry Prices (<span id="liveLockStrike1" class="text-indigo-400"></span>)</span>
+                                    <span class="text-[10px] text-gray-400 font-mono">S: <span id="liveEntrySpot1">0</span> | C: <span id="liveEntryCall1">0</span> | P: <span id="liveEntryPut1">0</span> | P/D: <span id="liveEntryPD1" class="text-white">0</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Toggle Header -->
+                <div class="flex justify-between items-center mt-4 mb-2 px-2">
+                    <div class="flex items-center gap-2">
+                        <span class="data-label opacity-70">Premium/Discount History</span>
+                        <button id="toggleAllExpiries1" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-amber-400 transition cursor-pointer bg-transparent border border-[#2d2640] hover:border-amber-500/40 rounded px-2 py-0.5" onclick="toggleAllExpiries(1)" title="Show all expiry data on chart">
+                            <i class="ph ph-stack"></i> Show All
+                        </button>
+                    </div>
+                    <button id="toggleChart1" class="text-xs flex items-center gap-1 text-[#8b85a1] hover:text-white transition cursor-pointer bg-transparent border-0 p-1" onclick="toggleChart(1)">
+                        <i class="ph ph-caret-down"></i> Hide Chart
+                    </button>
+                </div>
+
+                <!-- Chart Container -->
+                <div id="chartContainer1" class="chart-card fade-in mt-0">
+                    <div class="absolute top-2 right-2 z-20 flex gap-2">
+                        <button onclick="importChartData(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Import Open Trades (CSV)">
+                            <i class="ph ph-file-arrow-up"></i>
+                        </button>
+                        <button onclick="exportChartData(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Export CSV">
+                            <i class="ph ph-file-csv"></i>
+                        </button>
+                        <button onclick="resetChartZoom(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Reset Zoom">
+                            <i class="ph ph-arrows-counter-clockwise"></i>
+                        </button>
+                        <button onclick="clearChartData(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 transition" title="Clear Chart">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                    </div>
+                    <canvas id="miniCalcChart1"></canvas>
+                </div>
+                <!-- Trade Details -->
+                <div class="px-2 mt-4 mb-2">
+                    <span class="data-label opacity-70">Today's Trades</span>
+                    <div id="tradeDetailsContainer1" class="mt-2 text-sm text-gray-300">
+                        <div class="text-gray-500 italic py-2 text-center border border-[#2d2640] rounded bg-[#1a1625]">No trades recorded for today</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= Box 3 ================= -->
+            <div id="resultBox2" class="fade-in hidden">
+                <div class="dark-card">
+                    <!-- Symbol Search -->
+                    <div class="symbol-search-wrap">
+                        <input type="text" id="symbolInput2" class="symbol-search-input" 
+                               placeholder="TCS, FINNIFTY..." value="" autocomplete="off" spellcheck="false">
+                        <button id="symbolGoBtn2" class="symbol-go-btn" onclick="startBox(2)">
+                            <i class="ph ph-play-circle"></i> Go
+                        </button>
+                    </div>
+
+                    <!-- Status Badge -->
+                    <div class="flex items-center justify-between mb-3">
+                        <span id="boxStatus2" class="box-status-badge box-status-idle">
+                            <span class="status-dot" style="width:6px;height:6px;margin:0;"></span> Idle
+                        </span>
+                        <select id="expirySelect2" class="bg-[#1a2f2e] text-green-400 border border-green-800 focus:border-green-400 rounded px-2 py-1 text-xs font-bold outline-none transition cursor-pointer" onchange="triggerFetch(2)" style="display:none;"></select>
+                        <span id="expiryLabel2" class="data-label" style="font-size:0.7rem;"></span>
+                    </div>
+
+                    <div class="text-center">
+                        <div class="flex items-center justify-center gap-2 mb-4">
+                            <div class="strike-pill" style="margin-bottom:0;" id="atmStrikeDisplay2">ATM STRIKE: --</div>
+                            <input type="number" id="strikeInput2" placeholder="Custom Strike" title="Leave blank for Auto ATM Strike" class="bg-[#1a2f2e] text-green-400 border border-green-800 focus:border-green-400 rounded px-2 py-1.5 text-sm font-bold outline-none w-32 text-center transition" onchange="triggerFetch(2)">
+                        </div>
+                        
+                        <div class="text-5xl font-bold mb-8 flex items-center justify-center">
+                            <span class="text-orange-400 text-3xl mr-1">₹</span>
+                            <span id="synthResult2" class="tracking-tight">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- CE / PE Row -->
+                    <div class="grid grid-cols-2 gap-4 mb-8">
+                        <div class="ce-pe-box">
+                            <div class="data-label mb-1">Live CE</div>
+                            <div id="ceResult2" class="text-xl font-bold value-green">₹0.00</div>
+                        </div>
+                        <div class="ce-pe-box">
+                            <div class="data-label mb-1">Live PE</div>
+                            <div id="peResult2" class="text-xl font-bold value-red">₹0.00</div>
+                        </div>
+                    </div>
+
+                    <!-- Spot / Premium Row -->
+                    <div class="flex justify-between items-center px-4 pt-4 border-t border-[#2d2640]">
+                        <div>
+                            <div class="data-label mb-1">Spot Price</div>
+                            <div class="text-lg font-semibold">
+                                <span id="spotResult2">₹0.00</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="data-label mb-1">Premium/Discount</div>
+                            <div id="diffResult2" class="text-lg font-bold">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Alert Rows: Upside & Downside Monitors -->
+                    <div class="px-4 pt-4 mt-4 border-t border-[#2d2640]">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-1.5">
+                                <i class="ph ph-trend-up text-green-400" style="font-size:0.85rem;"></i>
+                                <span class="data-label text-xs" style="color:#34d399;">Upside Monitor</span>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="alertUpTarget2" placeholder="+20" step="5" class="w-20 bg-[#0f0a1c] border border-[#2d2640] rounded px-2 py-1 text-white text-sm outline-none focus:border-green-500">
+                                <button id="setAlertUpBtn2" class="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded transition" onclick="configureAlert(2,'up')">Set</button>
+                            </div>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-1.5">
+                                <i class="ph ph-trend-down text-red-400" style="font-size:0.85rem;"></i>
+                                <span class="data-label text-xs" style="color:#f87171;">Downside Monitor</span>
+                            </div>
+                            <div class="flex gap-2 items-center">
+                                <input type="number" id="alertDownTarget2" placeholder="-20" step="5" class="w-20 bg-[#0f0a1c] border border-[#2d2640] rounded px-2 py-1 text-white text-sm outline-none focus:border-red-500">
+                                <button id="setAlertDownBtn2" class="bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded transition" onclick="configureAlert(2,'down')">Set</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Position Tracker Mini Panel -->
+                    <div class="px-4 pt-4 mt-4 border-t border-[#2d2640] pb-2">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="data-label text-xs">Live Arb Tracker</span>
+                            <div class="flex gap-2 items-center">
+                                <select id="liveDir2" class="bg-[#0f0a1c] border border-[#2d2640] rounded text-[10px] uppercase font-bold px-1 py-0.5 text-indigo-300 outline-none">
+                                    <option value="long">Long Synth</option>
+                                    <option value="short">Short Synth</option>
+                                </select>
+                                <input type="number" id="liveLots2" value="1" min="1" class="w-10 bg-[#0f0a1c] border border-[#2d2640] rounded px-1 py-0.5 text-white text-[10px] outline-none text-center" title="Lots" onchange="updateQty(2)">
+                                <span class="text-[10px] text-gray-500 font-bold mx-0.5">x</span>
+                                <input type="number" id="liveLotMult2" value="50" class="w-12 bg-[#0f0a1c] border border-[#2d2640] rounded px-1 py-0.5 text-gray-400 text-[10px] outline-none text-center" title="Lot Size" onchange="updateQty(2)">
+                                <span class="text-[10px] text-gray-500 font-bold ml-1 mr-1">=</span>
+                                <span id="liveTotalQty2" class="text-[10px] text-white font-bold w-6 text-left" title="Total Qty">50</span>
+                                <button id="btnLiveEntry2" class="bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded transition" onclick="enterLivePos(2)">Enter</button>
+                                <button id="btnLiveExit2" class="bg-red-600 hover:bg-red-500 text-white text-[10px] uppercase font-bold px-2 py-1 rounded transition hidden" onclick="exitLivePos(2)">Exit</button>
+                            </div>
+                        </div>
+                        <div id="livePanel2" class="bg-gradient-to-r from-[#1a1625] to-[#231b2e] rounded border border-indigo-500/20 p-2 hidden">
+                            <div class="flex justify-between items-center px-1">
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Live P/L</span>
+                                    <span id="liveNetPnL2" class="text-xl font-mono font-black tracking-tight" style="color: #8b85a1;">₹ 0.00</span>
+                                </div>
+                                <div class="text-right flex flex-col items-end">
+                                    <span class="text-[9px] text-gray-500 uppercase tracking-wider font-bold">Entry Prices (<span id="liveLockStrike2" class="text-indigo-400"></span>)</span>
+                                    <span class="text-[10px] text-gray-400 font-mono">S: <span id="liveEntrySpot2">0</span> | C: <span id="liveEntryCall2">0</span> | P: <span id="liveEntryPut2">0</span> | P/D: <span id="liveEntryPD2" class="text-white">0</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Toggle Header -->
+                <div class="flex justify-between items-center mt-4 mb-2 px-2">
+                    <div class="flex items-center gap-2">
+                        <span class="data-label opacity-70">Premium/Discount History</span>
+                        <button id="toggleAllExpiries2" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-amber-400 transition cursor-pointer bg-transparent border border-[#2d2640] hover:border-amber-500/40 rounded px-2 py-0.5" onclick="toggleAllExpiries(2)" title="Show all expiry data on chart">
+                            <i class="ph ph-stack"></i> Show All
+                        </button>
+                    </div>
+                    <button id="toggleChart2" class="text-xs flex items-center gap-1 text-[#8b85a1] hover:text-white transition cursor-pointer bg-transparent border-0 p-1" onclick="toggleChart(2)">
+                        <i class="ph ph-caret-down"></i> Hide Chart
+                    </button>
+                </div>
+
+                <!-- Chart Container -->
+                <div id="chartContainer2" class="chart-card fade-in mt-0">
+                    <div class="absolute top-2 right-2 z-20 flex gap-2">
+                        <button onclick="importChartData(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Import Open Trades (CSV)">
+                            <i class="ph ph-file-arrow-up"></i>
+                        </button>
+                        <button onclick="exportChartData(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Export CSV">
+                            <i class="ph ph-file-csv"></i>
+                        </button>
+                        <button onclick="resetChartZoom(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Reset Zoom">
+                            <i class="ph ph-arrows-counter-clockwise"></i>
+                        </button>
+                        <button onclick="clearChartData(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 transition" title="Clear Chart">
+                            <i class="ph ph-trash"></i>
+                        </button>
+                    </div>
+                    <canvas id="miniCalcChart2"></canvas>
+                </div>
+                <!-- Trade Details -->
+                <div class="px-2 mt-4 mb-2">
+                    <span class="data-label opacity-70">Today's Trades</span>
+                    <div id="tradeDetailsContainer2" class="mt-2 text-sm text-gray-300">
+                        <div class="text-gray-500 italic py-2 text-center border border-[#2d2640] rounded bg-[#1a1625]">No trades recorded for today</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Add Box Button -->
+        <div class="text-center mb-8">
+            <button id="addBoxBtn" onclick="addNextBox()" class="bg-[#231b2e] hover:bg-[#2d2640] border border-[#2d2640] text-gray-300 font-bold py-2 px-6 rounded-lg transition shadow-lg">
+                <i class="ph ph-plus-circle mr-2"></i> Add Another Box
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Trade History Modal -->
+    <div id="tradeHistoryModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-[#1a1625] border border-[#2d2640] rounded-2xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl transition-all scale-95 duration-300 opacity-0 transform" id="tradeHistoryModalContent">
+            <!-- Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-[#2d2640] bg-[#231b2e]">
+                <div class="flex items-center gap-2 text-indigo-400">
+                    <i class="ph ph-database text-xl"></i>
+                    <h3 class="text-lg font-bold text-white uppercase tracking-wider">Historical Trade Database</h3>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="exportAllDatabaseTrades()" class="text-xs bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 text-white font-bold py-1.5 px-3 rounded transition flex items-center gap-1">
+                        <i class="ph ph-file-csv"></i> Export CSV
+                    </button>
+                    <button onclick="closeTradeHistoryModal()" class="text-gray-400 hover:text-white transition bg-[#2d2640] hover:bg-[#3d3560] p-1.5 rounded-lg">
+                        <i class="ph ph-x text-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <!-- Filter Bar -->
+            <div class="px-6 py-3 bg-[#1e192c] border-b border-[#2d2640] flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex flex-wrap gap-3 items-center">
+                    <select id="histFilterSymbol" onchange="filterHistoryTable()" class="bg-[#0f0a1c] border border-[#2d2640] rounded text-xs px-2.5 py-1.5 text-gray-300 outline-none">
+                        <option value="">All Symbols</option>
+                    </select>
+                    <select id="histFilterStatus" onchange="filterHistoryTable()" class="bg-[#0f0a1c] border border-[#2d2640] rounded text-xs px-2.5 py-1.5 text-gray-300 outline-none">
+                        <option value="">All Statuses</option>
+                        <option value="OPEN">Open</option>
+                        <option value="CLOSED">Closed</option>
+                        <option value="EXPIRED">Expired</option>
+                    </select>
+                    <select id="histFilterDirection" onchange="filterHistoryTable()" class="bg-[#0f0a1c] border border-[#2d2640] rounded text-xs px-2.5 py-1.5 text-gray-300 outline-none">
+                        <option value="">All Directions</option>
+                        <option value="LONG">Long</option>
+                        <option value="SHORT">Short</option>
+                    </select>
+                </div>
+                <!-- Stats Summary -->
+                <div class="flex gap-4 text-xs font-semibold text-gray-400">
+                    <div class="bg-[#0f0a1c] px-3 py-1.5 rounded border border-[#2d2640]">Total Trades: <span id="histStatCount" class="text-white">0</span></div>
+                    <div class="bg-[#0f0a1c] px-3 py-1.5 rounded border border-[#2d2640]">Realized P/L: <span id="histStatPnL" class="text-white">₹ 0.00</span></div>
+                </div>
+            </div>
+            <!-- Body -->
+            <div class="p-6 overflow-y-auto flex-1 bg-[#151121]">
+                <div class="overflow-x-auto border border-[#2d2640] rounded-xl bg-[#1a1625]">
+                    <table class="w-full text-left border-collapse whitespace-nowrap text-sm">
+                        <thead>
+                            <tr class="bg-[#231b2e] text-[#8b85a1] font-semibold uppercase tracking-wider text-xs">
+                                <th class="p-3 border-b border-[#2d2640]">ID / Date</th>
+                                <th class="p-3 border-b border-[#2d2640]">Symbol</th>
+                                <th class="p-3 border-b border-[#2d2640]">Dir</th>
+                                <th class="p-3 border-b border-[#2d2640]">Qty</th>
+                                <th class="p-3 border-b border-[#2d2640]">Strike</th>
+                                <th class="p-3 border-b border-[#2d2640]">Expiry</th>
+                                <th class="p-3 border-b border-[#2d2640]">Entry (S/C/P | P/D)</th>
+                                <th class="p-3 border-b border-[#2d2640]">Exit (S/C/P)</th>
+                                <th class="p-3 border-b border-[#2d2640]">Net P/L</th>
+                                <th class="p-3 border-b border-[#2d2640] text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tradeHistoryTableBody">
+                            <!-- Rows dynamically populated -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <script>
+            // ═══════════════════════════════════════════════════════════
+            //  PER-BOX STATE: each box is fully independent
+            // ═══════════════════════════════════════════════════════════
+            const NUM_BOXES = 3;
+            const CHART_COLORS = ['blue', 'purple', 'orange'];
+
+            // Date helper: always dd/mm/yyyy format
+            function formatDate(d) {
+                if (!d) d = new Date();
+                if (typeof d === 'string') return d; // already formatted
+                return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+            }
+
+            // Per-box state arrays
+            const boxSymbol = [null, null, null];           // active symbol for each box
+            const boxTimer = [null, null, null];            // setTimeout id for polling
+            const boxFetching = [false, false, false];      // is currently fetching?
+            const boxChart = [null, null, null];            // Chart.js instances
+            const boxHistory = [[], [], []];                // chart history data
+            const boxChartVisible = [true, true, true];     // chart visibility toggle
+
+            // ─── LocalStorage Persistence Helpers ───
+            // Key is symbol-only so multi-day data persists across page reloads
+            function getChartKey(symbol) {
+                return `autocalc_chart_${symbol}`;
+            }
+            // Old date-specific key (for migration)
+            function getOldDateKey(symbol, d) {
+                if (!d) d = new Date();
+                const dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+                return `autocalc_${dateStr}_${symbol}`;
+            }
+
+            let visibleBoxes = 1;
+            function addNextBox() {
+                if (visibleBoxes < 3) {
+                    el(`resultBox${visibleBoxes}`).classList.remove('hidden');
+                    visibleBoxes++;
+                    
+                    const grid = el('calculatorsGrid');
+                    if (visibleBoxes === 2) grid.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mb-4';
+                    if (visibleBoxes === 3) grid.className = 'grid grid-cols-1 lg:grid-cols-3 gap-6 w-full mb-4';
+                    
+                    if (visibleBoxes >= 3) {
+                        el('addBoxBtn').classList.add('hidden');
+                    }
+                }
+            }
+
+            function saveBoxData(idx) {
+                const sym = boxSymbol[idx];
+                if (!sym || boxHistory[idx].length === 0) return;
+                try {
+                    // Trim to last 7 days of data to prevent unbounded growth
+                    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+                    const trimmed = boxHistory[idx].filter(p => p.time >= cutoff);
+                    boxHistory[idx] = trimmed;
+                    const key = getChartKey(sym);
+                    localStorage.setItem(key, JSON.stringify(trimmed));
+                } catch(e) { /* quota exceeded, ignore */ }
+            }
+            function loadBoxData(symbol) {
+                try {
+                    // Try new symbol-only key first
+                    const key = getChartKey(symbol);
+                    let data = localStorage.getItem(key);
+                    if (data) return JSON.parse(data);
+
+                    // Migrate from old date-specific keys (check last 7 days)
+                    let merged = [];
+                    for (let i = 0; i < 7; i++) {
+                        const d = new Date();
+                        d.setDate(d.getDate() - i);
+                        const oldKey = getOldDateKey(symbol, d);
+                        const oldData = localStorage.getItem(oldKey);
+                        if (oldData) {
+                            try {
+                                const parsed = JSON.parse(oldData);
+                                if (Array.isArray(parsed)) merged = merged.concat(parsed);
+                                localStorage.removeItem(oldKey); // Clean up old key
+                            } catch(e) {}
+                        }
+                    }
+                    if (merged.length > 0) {
+                        // Deduplicate by time and sort
+                        const seen = new Set();
+                        merged = merged.filter(p => {
+                            if (seen.has(p.time)) return false;
+                            seen.add(p.time);
+                            return true;
+                        }).sort((a, b) => a.time - b.time);
+                        // Save under new key
+                        localStorage.setItem(key, JSON.stringify(merged));
+                        return merged;
+                    }
+                    return null;
+                } catch(e) { return null; }
+            }
+
+            // Alert state per box — Upside & Downside monitors
+            const boxAlertUpTarget = [null, null, null];
+            const boxAlertUpActive = [false, false, false];
+            const boxAlertUpTriggered = [false, false, false];
+            const boxAlertDownTarget = [null, null, null];
+            const boxAlertDownActive = [false, false, false];
+            const boxAlertDownTriggered = [false, false, false];
+
+            // ─── Per-Expiry Chart Separation ───
+            const boxExpiryMap = [{}, {}, {}]; // { expiryStr: datasetIndex } per box
+            const EXPIRY_COLORS = [
+                { border: '#3b82f6', rgb: '59, 130, 246' },   // Blue
+                { border: '#a855f7', rgb: '168, 85, 247' },   // Purple
+                { border: '#f97316', rgb: '249, 115, 22' },   // Orange
+                { border: '#14b8a6', rgb: '20, 184, 166' },   // Teal
+                { border: '#f43f5e', rgb: '244, 63, 94' },    // Rose
+                { border: '#eab308', rgb: '234, 179, 8' },    // Yellow
+                { border: '#06b6d4', rgb: '6, 182, 212' },    // Cyan
+                { border: '#ec4899', rgb: '236, 72, 153' },   // Pink
+            ];
+            const boxActiveExpiry = [null, null, null];           // currently viewed expiry
+            const boxShowAllExpiries = [false, false, false];     // show all expiries toggle
+
+            // Format API expiry string (e.g. "15MAY2026") into readable label
+            function formatExpiryDate(expStr) {
+                if (!expStr || expStr === 'unknown') return expStr || 'Unknown';
+                try {
+                    // Try parsing "15MAY2026" or "15-May-2026" formats
+                    const d = new Date(expStr.replace(/(\d{2})([A-Z]{3})(\d{4})/i, '$1 $2 $3'));
+                    if (!isNaN(d.getTime())) {
+                        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' });
+                    }
+                } catch(e) {}
+                return expStr; // Return as-is if parsing fails
+            }
+
+            function rebuildChartDatasets(idx) {
+                const chart = boxChart[idx];
+                const history = boxHistory[idx];
+
+                // Group by expiry
+                const groups = {};
+                const expiryOrder = [];
+                history.forEach(p => {
+                    const exp = p.expiry || 'unknown';
+                    if (!groups[exp]) {
+                        groups[exp] = [];
+                        expiryOrder.push(exp);
+                    }
+                    groups[exp].push(p);
+                });
+
+                // Build datasets — filter by active expiry unless "Show All" is on
+                const datasets = [];
+                const newExpiryMap = {};
+                const ctx = chart.ctx;
+                const activeExp = boxActiveExpiry[idx];
+                const showAll = boxShowAllExpiries[idx];
+
+                expiryOrder.forEach((exp, i) => {
+                    // If filtering to active expiry, skip non-matching
+                    if (!showAll && activeExp && exp !== activeExp) return;
+
+                    const colorIdx = i % EXPIRY_COLORS.length;
+                    const color = EXPIRY_COLORS[colorIdx];
+
+                    let gradient = ctx.createLinearGradient(0, 0, 0, 150);
+                    gradient.addColorStop(0, `rgba(${color.rgb}, 0.3)`);
+                    gradient.addColorStop(1, `rgba(${color.rgb}, 0.0)`);
+
+                    const dsIndex = datasets.length;
+                    datasets.push({
+                        label: `P/D (${formatExpiryDate(exp)})`,
+                        data: (function() {
+                            const mappedData = [];
+                            const points = groups[exp];
+                            for (let j = 0; j < points.length; j++) {
+                                const p = points[j];
+                                const xVal = toMarketX(p.time);
+                                
+                                if (j > 0) {
+                                    const prevP = points[j - 1];
+                                    const prevXVal = toMarketX(prevP.time);
+                                    const day1 = Math.floor(prevXVal / MKT_DURATION_MIN);
+                                    const day2 = Math.floor(xVal / MKT_DURATION_MIN);
+                                    if (day1 !== day2) {
+                                        // Day boundary detected! Insert a null point to break the line.
+                                        mappedData.push({ x: (prevXVal + xVal) / 2, y: null });
+                                    }
+                                }
+                                
+                                mappedData.push({ x: xVal, y: p.diff, _realTime: p.time });
+                            }
+                            return mappedData;
+                        })(),
+                        borderColor: color.border,
+                        backgroundColor: gradient,
+                        borderWidth: (!showAll || exp === activeExp) ? 2 : 1.5,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        fill: false,
+                        tension: 0.3,
+                        // Fade non-active expiries in "Show All" mode
+                        borderDash: (!showAll || exp === activeExp) ? [] : [5, 3],
+                    });
+
+                    newExpiryMap[exp] = dsIndex;
+                });
+
+                // Add trade marker datasets at the end
+                datasets.push({
+                    label: 'Entry',
+                    data: [],
+                    backgroundColor: '#10b981',
+                    borderColor: '#064e3b',
+                    borderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointStyle: 'triangle',
+                    rotation: function(context) {
+                        if (context.raw && context.raw.tradeDetails && context.raw.tradeDetails.direction === 'SHORT') return 180;
+                        return 0;
+                    },
+                    showLine: false
+                });
+
+                datasets.push({
+                    label: 'Exit',
+                    data: [],
+                    backgroundColor: '#ef4444',
+                    borderColor: '#7f1d1d',
+                    borderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8,
+                    pointStyle: 'circle',
+                    showLine: false
+                });
+
+                chart.data.datasets = datasets;
+                boxExpiryMap[idx] = newExpiryMap;
+                chart.update();
+                updateChartTradeMarkers(idx);
+            }
+
+            // Live Tracker state per box
+            const lastFetchData = [null, null, null];
+            const liveTrackerState = Array(3).fill(null).map(() => ({
+                active: false,
+                direction: 'long',
+                lotMult: 50,
+                entrySpot: 0,
+                entryCall: 0,
+                entryPut: 0,
+                lockedStrike: null,
+                currentTradeId: null
+            }));
+
+            // Trade Book — synced to backend server (shared across LAN)
+            let tradeBook = [];
+            let _tradeSaveTimer = null;
+            const _tradeApiBase = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+
+            function loadTradeBook() {
+                // Load from localStorage first (instant), then sync from server
+                try {
+                    const data = localStorage.getItem('autocalc_tradebook');
+                    if (data) tradeBook = JSON.parse(data);
+                } catch(e) {}
+                // Fetch from server (overrides localStorage with server truth)
+                fetch(`${_tradeApiBase}/api/trades`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && Array.isArray(data.trades) && data.trades.length > 0) {
+                            tradeBook = data.trades;
+                            localStorage.setItem('autocalc_tradebook', JSON.stringify(tradeBook));
+                            // Re-render trade details for all active boxes
+                            for (let i = 0; i < NUM_BOXES; i++) {
+                                if (boxSymbol[i]) renderTradeDetails(i);
+                            }
+                        } else if (data.success && data.trades.length === 0 && tradeBook.length > 0) {
+                            // Server is empty but we have local trades — push them up
+                            _pushTradesToServer();
+                        }
+                    })
+                    .catch(e => console.warn('[Trades] Server unavailable, using localStorage', e));
+            }
+
+            function saveTradeBook() {
+                // Save to localStorage immediately
+                try {
+                    localStorage.setItem('autocalc_tradebook', JSON.stringify(tradeBook));
+                } catch(e) {}
+                // Debounced save to server (avoid flooding on rapid updates)
+                clearTimeout(_tradeSaveTimer);
+                _tradeSaveTimer = setTimeout(_pushTradesToServer, 500);
+            }
+
+            function _pushTradesToServer() {
+                fetch(`${_tradeApiBase}/api/trades`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trades: tradeBook })
+                }).catch(e => console.warn('[Trades] Server save failed', e));
+            }
+
+            // ─── Trade History Database Modal Controllers ───
+            let allDbTrades = [];
+
+            function openTradeHistoryModal() {
+                const modal = el('tradeHistoryModal');
+                const content = el('tradeHistoryModalContent');
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                
+                // Trigger transition
+                setTimeout(() => {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                }, 10);
+
+                // Fetch trades from database
+                fetch(`${_tradeApiBase}/api/trades/history`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success && Array.isArray(data.trades)) {
+                            allDbTrades = data.trades;
+                            populateFilterDropdowns();
+                            filterHistoryTable();
+                        }
+                    })
+                    .catch(e => {
+                        console.error('[TradesHistory] Fetch failed', e);
+                        alert('Failed to connect to the database server.');
+                    });
+            }
+
+            function closeTradeHistoryModal() {
+                const modal = el('tradeHistoryModal');
+                const content = el('tradeHistoryModalContent');
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                
+                setTimeout(() => {
+                    modal.classList.remove('flex');
+                    modal.classList.add('hidden');
+                }, 200);
+            }
+
+            function populateFilterDropdowns() {
+                const symSelect = el('histFilterSymbol');
+                // Get unique symbols in DB trades
+                const symbols = [...new Set(allDbTrades.map(t => t.symbol).filter(Boolean))].sort();
+                
+                let html = '<option value="">All Symbols</option>';
+                symbols.forEach(s => {
+                    html += `<option value="${s}">${s}</option>`;
+                });
+                
+                const currentVal = symSelect.value;
+                symSelect.innerHTML = html;
+                if (symbols.includes(currentVal)) {
+                    symSelect.value = currentVal;
+                }
+            }
+
+            function filterHistoryTable() {
+                const filterSym = el('histFilterSymbol').value.toUpperCase();
+                const filterStatus = el('histFilterStatus').value.toUpperCase();
+                const filterDir = el('histFilterDirection').value.toUpperCase();
+
+                const filtered = allDbTrades.filter(t => {
+                    if (filterSym && t.symbol !== filterSym) return false;
+                    if (filterStatus && t.status !== filterStatus) return false;
+                    if (filterDir && t.direction !== filterDir) return false;
+                    return true;
+                });
+
+                // Compute stats
+                let totalPnL = 0;
+                filtered.forEach(t => {
+                    if (t.status !== 'OPEN') {
+                        totalPnL += t.finalPnL || 0;
+                    }
+                });
+
+                el('histStatCount').innerText = filtered.length;
+                
+                const pnlSpan = el('histStatPnL');
+                pnlSpan.innerText = `₹ ${Math.abs(totalPnL).toFixed(2)}`;
+                if (totalPnL > 0) {
+                    pnlSpan.innerText = '+ ' + pnlSpan.innerText;
+                    pnlSpan.className = 'text-emerald-400';
+                } else if (totalPnL < 0) {
+                    pnlSpan.innerText = '- ' + pnlSpan.innerText;
+                    pnlSpan.className = 'text-rose-400';
+                } else {
+                    pnlSpan.className = 'text-white';
+                }
+
+                renderHistoryTable(filtered);
+            }
+
+            function renderHistoryTable(trades) {
+                const tbody = el('tradeHistoryTableBody');
+                if (!tbody) return;
+
+                if (trades.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="text-center text-gray-500 italic py-8 bg-[#1a1625]/50 border-b border-[#2d2640]">
+                                No trades found matching current filter criteria.
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                trades.forEach(t => {
+                    const statusDot = t.status === 'OPEN' 
+                        ? '<span class="status-dot status-live" style="width:6px;height:6px;margin:0"></span>' 
+                        : '';
+                    const timeStr = `<span class="text-gray-500">${t.entryDate}</span> ${t.entryTime} <span class="text-gray-600 font-bold mx-1">→</span> ` + 
+                        (t.status === 'OPEN' 
+                            ? `<span class="text-emerald-400 font-bold uppercase tracking-wider text-xs">OPEN</span>` 
+                            : (t.status === 'EXPIRED' 
+                                ? `<span class="text-amber-500 font-bold text-xs">[EXPIRED]</span> ${t.exitTime}` 
+                                : `${t.exitTime}`));
+
+                    const entryPDVal = t.entryPD !== undefined ? t.entryPD : (t.entryCall - t.entryPut);
+                    const entryPDStr = entryPDVal > 0 ? `+${entryPDVal.toFixed(2)}` : entryPDVal.toFixed(2);
+                    const entryStr = `${t.entrySpot.toFixed(1)} / ${t.entryCall.toFixed(1)} / ${t.entryPut.toFixed(1)} <span class="text-[#a78bfa] bg-[#a78bfa]/10 px-1.5 py-0.5 rounded ml-1 text-xs font-bold font-mono">P/D: ${entryPDStr}</span>`;
+                    
+                    const exitStr = t.status === 'OPEN' 
+                        ? '<span class="text-gray-600">--</span>' 
+                        : `${t.exitSpot.toFixed(1)} / ${t.exitCall.toFixed(1)} / ${t.exitPut.toFixed(1)}`;
+                    
+                    const pnlClass = t.finalPnL > 0 ? 'text-emerald-400' : (t.finalPnL < 0 ? 'text-rose-400' : 'text-gray-400');
+                    const pnlStr = t.status === 'OPEN' ? '<span class="text-gray-600">--</span>' : `₹ ${t.finalPnL.toFixed(2)}`;
+
+                    html += `
+                        <tr class="border-b border-[#2d2640] hover:bg-[#231b2e] transition text-sm">
+                            <td class="p-3 font-mono flex items-center gap-1.5">${statusDot}${timeStr}</td>
+                            <td class="p-3 font-bold text-indigo-400">${t.symbol}</td>
+                            <td class="p-3 ${t.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'} font-bold">${t.direction}</td>
+                            <td class="p-3 font-mono">${t.lots ? t.lots + 'L (' + t.qty + ')' : t.qty || '--'}</td>
+                            <td class="p-3 font-mono text-indigo-300 font-bold">${t.strike}</td>
+                            <td class="p-3 font-mono text-amber-300">${t.expiry || '--'}</td>
+                            <td class="p-3 font-mono text-gray-400">${entryStr}</td>
+                            <td class="p-3 font-mono text-gray-400">${exitStr}</td>
+                            <td class="p-3 font-mono font-bold ${pnlClass}">${pnlStr}</td>
+                            <td class="p-3 text-center">
+                                <button onclick="deleteHistoryTrade(${t.id})" class="p-1 rounded bg-[#231b2e] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 border border-[#2d2640] transition" title="Delete Trade from DB">
+                                    <i class="ph ph-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            }
+
+            function deleteHistoryTrade(tradeId) {
+                if (!confirm("Are you sure you want to delete this trade from the database permanently?")) {
+                    return;
+                }
+
+                fetch(`${_tradeApiBase}/api/trades/${tradeId}`, { method: 'DELETE' })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update local variable
+                            allDbTrades = allDbTrades.filter(t => t.id !== tradeId);
+                            // Also update frontend tradeBook
+                            tradeBook = tradeBook.filter(t => t.id !== tradeId);
+                            localStorage.setItem('autocalc_tradebook', JSON.stringify(tradeBook));
+                            
+                            // Re-render both views
+                            filterHistoryTable();
+                            for (let i = 0; i < NUM_BOXES; i++) {
+                                if (boxSymbol[i]) renderTradeDetails(i);
+                            }
+                        } else {
+                            alert("Failed to delete trade: " + (data.message || 'unknown error'));
+                        }
+                    })
+                    .catch(e => {
+                        console.error('[TradesHistory] Delete failed', e);
+                        alert("Network error: Could not complete deletion.");
+                    });
+            }
+
+            function exportAllDatabaseTrades() {
+                if (allDbTrades.length === 0) {
+                    alert("No trade data available to export.");
+                    return;
+                }
+                
+                // Prepare CSV Headers
+                const headers = ["ID", "Status", "Entry Date", "Entry Time", "Exit Date", "Exit Time", "Symbol", "Direction", "Strike", "Qty", "Entry Spot", "Entry Call", "Entry Put", "Entry PD", "Expiry", "Exit Spot", "Exit Call", "Exit Put", "Final PnL"];
+                const rows = allDbTrades.map(t => [
+                    t.id,
+                    t.status,
+                    t.entryDate,
+                    t.entryTime,
+                    t.exitDate,
+                    t.exitTime,
+                    t.symbol,
+                    t.direction,
+                    t.strike,
+                    t.qty,
+                    t.entrySpot,
+                    t.entryCall,
+                    t.entryPut,
+                    t.entryPD,
+                    t.expiry,
+                    t.exitSpot,
+                    t.exitCall,
+                    t.exitPut,
+                    t.finalPnL
+                ]);
+
+                let csvContent = "data:text/csv;charset=utf-8," 
+                    + [headers.join(","), ...rows.map(e => e.map(val => `"${val}"`).join(","))].join("\n");
+                
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `trades_database_export_${new Date().toISOString().slice(0,10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            async function loadTicksFromDB(symbol, idx) {
+                // First try to load from localStorage as instant fallback
+                const saved = loadBoxData(symbol) || [];
+                boxHistory[idx] = saved;
+                
+                try {
+                    // Fetch last 1500 ticks from DB to populate chart
+                    const res = await fetch(`${_tradeApiBase}/api/market/ticks?symbol=${encodeURIComponent(symbol)}&limit=1500`);
+                    const result = await res.json();
+                    if (result.success && Array.isArray(result.ticks) && result.ticks.length > 0) {
+                        // Map database fields to frontend structure
+                        const dbTicks = result.ticks.map(t => ({
+                            time: t.timestamp,
+                            spot: t.underlying,
+                            call: t.call_price,
+                            put: t.put_price,
+                            synthetic: t.synthetic_future,
+                            strike: t.strike,
+                            expiry: t.expiry,
+                            diff: t.premium_discount
+                        }));
+                        
+                        // Merge database history and localStorage history, keeping unique times
+                        const merged = [...dbTicks];
+                        saved.forEach(s => {
+                            // If tick is not already in merged list (within 1 second tolerance), add it
+                            if (!merged.some(m => Math.abs(m.time - s.time) < 1000)) {
+                                merged.push(s);
+                            }
+                        });
+                        
+                        // Sort chronologically
+                        merged.sort((a, b) => a.time - b.time);
+                        
+                        // Keep last 1500 elements to optimize browser rendering
+                        if (merged.length > 1500) {
+                            boxHistory[idx] = merged.slice(merged.length - 1500);
+                        } else {
+                            boxHistory[idx] = merged;
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`[Box${idx}] Failed to fetch ticks from database:`, e);
+                }
+                
+                // Rebuild datasets
+                if (boxHistory[idx].length > 0) {
+                    const lastExpiry = boxHistory[idx][boxHistory[idx].length - 1].expiry || null;
+                    boxActiveExpiry[idx] = lastExpiry;
+                } else {
+                    boxActiveExpiry[idx] = null;
+                }
+                boxShowAllExpiries[idx] = false;
+                updateShowAllBtn(idx);
+                rebuildChartDatasets(idx);
+            }
+
+            loadTradeBook();
+
+            // Auto-close expired OPEN trades
+            function autoCloseExpiredTrades() {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                let changed = false;
+                tradeBook.forEach(t => {
+                    if (t.status === 'OPEN' && t.expiry) {
+                        try {
+                            const expDate = new Date(t.expiry.replace(/(\d{2})([A-Z]{3})(\d{4})/, '$1 $2 $3'));
+                            expDate.setHours(15, 30, 0, 0); // Market close time
+                            if (today > expDate) {
+                                t.status = 'EXPIRED';
+                                t.exitDate = formatDate(expDate);
+                                t.exitTime = '15:30:00 (Expired)';
+                                t.exitSpot = t.entrySpot;
+                                t.exitCall = 0;
+                                t.exitPut = 0;
+                                // P/L = loss of premium for expired options
+                                if (t.direction.toUpperCase() === 'LONG') {
+                                    t.finalPnL = -(t.entryCall + t.entryPut) * t.qty;
+                                } else {
+                                    t.finalPnL = (t.entryCall + t.entryPut) * t.qty;
+                                }
+                                changed = true;
+                            }
+                        } catch(e) {}
+                    }
+                });
+                if (changed) {
+                    saveTradeBook();
+                    for (let i = 0; i < NUM_BOXES; i++) {
+                        if (boxSymbol[i]) renderTradeDetails(i);
+                    }
+                }
+            }
+            // Run after a short delay to let loadTradeBook finish server fetch
+            setTimeout(autoCloseExpiredTrades, 3000);
+
+            function updateQty(idx) {
+                const lots = parseFloat(el(`liveLots${idx}`).value) || 1;
+                const size = parseFloat(el(`liveLotMult${idx}`).value) || 1;
+                if (el(`liveTotalQty${idx}`)) {
+                    el(`liveTotalQty${idx}`).innerText = lots * size;
+                }
+            }
+
+            // ─── Render Trade Details ───
+            function renderTradeDetails(idx, liveData = null) {
+                const container = el(`tradeDetailsContainer${idx}`);
+                if (!container || !boxSymbol[idx]) return;
+                
+                const sym = boxSymbol[idx];
+                const todayStr = formatDate();
+                
+                const trades = tradeBook.filter(t => t.symbol === sym && (t.entryDate === todayStr || t.exitDate === todayStr || t.status === 'OPEN' || t.status === 'EXPIRED'));
+                
+                if (trades.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 italic py-2 text-center border border-[#2d2640] rounded bg-[#1a1625]">No trades recorded for today</div>';
+                    return;
+                }
+                
+                const hasOpenTrades = trades.some(t => t.status === 'OPEN');
+
+                let html = `
+                ${hasOpenTrades ? `<div class="flex justify-end mb-1"><button onclick="closeAllPositions(${idx})" class="bg-red-600 hover:bg-red-500 text-white text-xs uppercase font-bold px-3 py-1.5 rounded transition">Close All Open</button></div>` : ''}
+                <div class="overflow-x-auto border border-[#2d2640] rounded-lg bg-[#1a1625] mt-2 mb-2">
+                    <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <thead>
+                            <tr class="bg-[#231b2e] text-[#8b85a1] font-semibold text-xs uppercase tracking-wider">
+                                <th class="p-2 border-b border-[#2d2640]">Date / Time</th>
+                                <th class="p-2 border-b border-[#2d2640]">Dir</th>
+                                <th class="p-2 border-b border-[#2d2640]">Qty</th>
+                                <th class="p-2 border-b border-[#2d2640]">Strike</th>
+                                <th class="p-2 border-b border-[#2d2640]">Expiry</th>
+                                <th class="p-2 border-b border-[#2d2640]">Entry (S/C/P | P/D)</th>
+                                <th class="p-2 border-b border-[#2d2640]">Exit (S/C/P)</th>
+                                <th class="p-2 border-b border-[#2d2640] text-right">Net P/L</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+                
+                trades.forEach(t => {
+                    const statusDot = t.status === 'OPEN' ? '<span class="status-dot status-live" style="width:6px;height:6px;margin:0"></span>' : '';
+                    const entryDateStr = t.entryDate || '--';
+                    const exitDateStr = t.exitDate || '--';
+                    const timeStr = t.status === 'OPEN' 
+                        ? `<span class="text-gray-500">${entryDateStr}</span> ${t.entryTime} → <span class="text-amber-400 font-bold">OPEN</span>` 
+                        : `<span class="text-gray-500">${entryDateStr}</span> ${t.entryTime} → ${t.exitTime}`;
+                    const entryPDVal = t.entryPD !== undefined ? t.entryPD : (t.entryCall - t.entryPut);
+                    const entryPDStr = entryPDVal > 0 ? `+${entryPDVal.toFixed(2)}` : entryPDVal.toFixed(2);
+                    const entryStr = `${t.entrySpot.toFixed(1)} / ${t.entryCall.toFixed(1)} / ${t.entryPut.toFixed(1)} <span class="text-white bg-white/10 px-1.5 rounded ml-1 text-xs font-bold">P/D: ${entryPDStr}</span>`;
+                    const exitStr = t.status === 'OPEN' ? '--' : `${t.exitSpot.toFixed(1)} / ${t.exitCall.toFixed(1)} / ${t.exitPut.toFixed(1)}`;
+                    
+                    let displayPnL = t.finalPnL;
+                    let hasLiveData = false;
+                    if (t.status === 'OPEN' && liveData && liveData.symbol === t.symbol && Number(liveData.strike) === Number(t.strike)) {
+                        hasLiveData = true;
+                        const curSpot = liveData.underlying;
+                        const curCall = liveData.call_price;
+                        const curPut = liveData.put_price;
+                        let spotPnL = 0, callPnL = 0, putPnL = 0;
+                        if (t.direction.toLowerCase() === 'long') {
+                            spotPnL = (t.entrySpot - curSpot) * t.qty; 
+                            callPnL = (curCall - t.entryCall) * t.qty; 
+                            putPnL = (t.entryPut - curPut) * t.qty;    
+                        } else {
+                            spotPnL = (curSpot - t.entrySpot) * t.qty; 
+                            callPnL = (t.entryCall - curCall) * t.qty; 
+                            putPnL = (curPut - t.entryPut) * t.qty;    
+                        }
+                        displayPnL = spotPnL + callPnL + putPnL;
+                    }
+
+                    const pnlClass = displayPnL > 0 ? 'text-green-400' : (displayPnL < 0 ? 'text-red-400' : 'text-gray-400');
+                    const pnlStr = (t.status === 'OPEN' && !hasLiveData) ? '--' : `₹ ${displayPnL.toFixed(2)}`;
+                    
+                    const actionAttr = t.status === 'OPEN' ? `onclick="loadOpenTrade(${idx}, ${t.id})" title="Click to load into Live Arb Tracker"` : '';
+                    const rowHover = t.status === 'OPEN' ? 'hover:bg-[#3d3560] cursor-pointer' : 'hover:bg-[#231b2e]';
+                    
+                    const inlineExit = t.status === 'OPEN' ? `<button onclick="exitSpecificTrade(event, ${idx}, ${t.id})" class="ml-2 bg-red-600 hover:bg-red-500 text-white text-xs px-2.5 py-1 rounded font-bold transition">Exit</button>` : '';
+                    const inlineCalc = (t.status === 'CLOSED' || t.status === 'EXPIRED') ? `<button onclick="openCalcSpecificTrade(event, ${t.id})" class="ml-2 bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded font-bold transition" title="Open in Position Calculator"><i class="ph ph-calculator"></i></button>` : '';
+                    
+                    const expiryStr = t.expiry || '--';
+                    const statusBadge = t.status === 'EXPIRED' ? '<span class="text-amber-500 font-bold text-xs ml-1">[EXPIRED]</span>' : '';
+
+                    html += `
+                            <tr class="border-b border-[#2d2640] transition text-sm ${rowHover}" ${actionAttr}>
+                                <td class="p-2 font-mono flex items-center gap-1">${statusDot}${timeStr}${statusBadge} ${inlineExit}${inlineCalc}</td>
+                                <td class="p-2 ${t.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'} font-bold">${t.direction}</td>
+                                <td class="p-2 font-mono font-bold">${t.lots ? t.lots + 'L (' + t.qty + ')' : t.qty || '--'}</td>
+                                <td class="p-2 font-mono text-indigo-300 font-bold">${t.strike}</td>
+                                <td class="p-2 font-mono text-amber-300">${expiryStr}</td>
+                                <td class="p-2 font-mono text-gray-400">${entryStr}</td>
+                                <td class="p-2 font-mono text-gray-400">${exitStr}</td>
+                                <td class="p-2 font-mono font-bold text-right ${pnlClass}">${pnlStr}</td>
+                            </tr>
+                    `;
+                });
+                
+                html += `</tbody></table></div>`;
+                container.innerHTML = html;
+                
+                updateGlobalPnLSummary();
+                updateChartTradeMarkers(idx);
+            }
+
+            function updateChartTradeMarkers(idx) {
+                if (!boxChart[idx] || !boxSymbol[idx]) return;
+                
+                const sym = boxSymbol[idx];
+                const todayStr = formatDate();
+                let trades = tradeBook.filter(t => t.symbol === sym && (t.entryDate === todayStr || t.exitDate === todayStr || t.status === 'OPEN'));
+                
+                // Filter trades by active expiry (unless "Show All" is on)
+                const activeExp = boxActiveExpiry[idx];
+                const showAll = boxShowAllExpiries[idx];
+                if (!showAll && activeExp) {
+                    trades = trades.filter(t => {
+                        const tradeExpiry = (t.expiry || '').toUpperCase().trim();
+                        const activeUpper = activeExp.toUpperCase().trim();
+                        return tradeExpiry === activeUpper || !tradeExpiry;
+                    });
+                }
+                
+                const entryData = [];
+                const exitData = [];
+                
+                trades.forEach(t => {
+                    let entryTs = t.id;
+                    if (entryTs < 1000000000000 && t.entryTime) {
+                        const parts = t.entryTime.match(/(\d+):(\d+):(\d+)\s*(AM|PM)?/i);
+                        if (parts) {
+                            let h = parseInt(parts[1]);
+                            if (parts[4]) {
+                                if (parts[4].toUpperCase() === 'PM' && h < 12) h += 12;
+                                if (parts[4].toUpperCase() === 'AM' && h === 12) h = 0;
+                            }
+                            const d = new Date();
+                            d.setHours(h, parseInt(parts[2]), parseInt(parts[3]), 0);
+                            entryTs = d.valueOf();
+                        }
+                    }
+
+                    let closestEntry = null;
+                    let minDiff = Infinity;
+                    boxHistory[idx].forEach(p => {
+                        const diff = Math.abs(p.time - entryTs);
+                        if (diff < minDiff && diff <= 120000) {
+                            minDiff = diff;
+                            closestEntry = p;
+                        }
+                    });
+                    
+                    if (closestEntry) {
+                        entryData.push({ x: toMarketX(closestEntry.time), y: closestEntry.diff, _realTime: closestEntry.time, tradeDetails: t });
+                    }
+
+                    if (t.status === 'CLOSED') {
+                        let exitTs = t.exitId;
+                        if (!exitTs && t.exitTime) {
+                            const exitParts = t.exitTime.match(/(\d+):(\d+):(\d+)\s*(AM|PM)?/i);
+                            if (exitParts) {
+                                let h = parseInt(exitParts[1]);
+                                if (exitParts[4]) {
+                                    if (exitParts[4].toUpperCase() === 'PM' && h < 12) h += 12;
+                                    if (exitParts[4].toUpperCase() === 'AM' && h === 12) h = 0;
+                                }
+                                const exitD = new Date();
+                                exitD.setHours(h, parseInt(exitParts[2]), parseInt(exitParts[3]), 0);
+                                exitTs = exitD.valueOf();
+                            }
+                        }
+                        
+                        if (exitTs) {
+                            let closestExit = null;
+                            minDiff = Infinity;
+                            boxHistory[idx].forEach(p => {
+                                const diff = Math.abs(p.time - exitTs);
+                                if (diff < minDiff && diff <= 120000) {
+                                    minDiff = diff;
+                                    closestExit = p;
+                                }
+                            });
+                            
+                            if (closestExit) {
+                                exitData.push({ x: toMarketX(closestExit.time), y: closestExit.diff, _realTime: closestExit.time, tradeDetails: t });
+                            }
+                        }
+                    }
+                });
+                
+                const datasets = boxChart[idx].data.datasets;
+                const entryDs = datasets.find(d => d.label === 'Entry');
+                const exitDs = datasets.find(d => d.label === 'Exit');
+                if (!entryDs || !exitDs) return;
+                entryDs.data = entryData;
+                exitDs.data = exitData;
+                boxChart[idx].update();
+            }
+
+            function updateGlobalPnLSummary() {
+                const summaryContainer = el('stockWisePnLContainer');
+                const totalEl = el('globalTotalPnL');
+                if (!summaryContainer || !totalEl) return;
+
+                const todayStr = formatDate();
+                const todayTrades = tradeBook.filter(t => t.entryDate === todayStr || t.exitDate === todayStr || t.status === 'OPEN');
+
+                let totalPnL = 0;
+                const stockPnL = {};
+
+                todayTrades.forEach(t => {
+                    let pnl = t.finalPnL || 0;
+                    
+                    if (t.status === 'OPEN') {
+                        let liveData = null;
+                        for (let i = 0; i < NUM_BOXES; i++) {
+                            if (lastFetchData[i] && lastFetchData[i].success && lastFetchData[i].symbol === t.symbol && Number(lastFetchData[i].strike) === Number(t.strike)) {
+                                liveData = lastFetchData[i];
+                                break;
+                            }
+                        }
+                        if (liveData) {
+                            const curSpot = liveData.underlying;
+                            const curCall = liveData.call_price;
+                            const curPut = liveData.put_price;
+                            let spotPnL = 0, callPnL = 0, putPnL = 0;
+                            if (t.direction.toLowerCase() === 'long') {
+                                spotPnL = (t.entrySpot - curSpot) * t.qty; 
+                                callPnL = (curCall - t.entryCall) * t.qty; 
+                                putPnL = (t.entryPut - curPut) * t.qty;    
+                            } else {
+                                spotPnL = (curSpot - t.entrySpot) * t.qty; 
+                                callPnL = (t.entryCall - curCall) * t.qty; 
+                                putPnL = (curPut - t.entryPut) * t.qty;    
+                            }
+                            pnl = spotPnL + callPnL + putPnL;
+                        }
+                    }
+
+                    totalPnL += pnl;
+                    if (!stockPnL[t.symbol]) {
+                        stockPnL[t.symbol] = 0;
+                    }
+                    stockPnL[t.symbol] += pnl;
+                });
+
+                totalEl.innerText = `₹ ${Math.abs(totalPnL).toFixed(2)}`;
+                if (totalPnL > 0) {
+                    totalEl.innerText = '+ ' + totalEl.innerText;
+                    totalEl.className = 'text-2xl font-black tracking-tight text-emerald-400';
+                } else if (totalPnL < 0) {
+                    totalEl.innerText = '- ' + totalEl.innerText;
+                    totalEl.className = 'text-2xl font-black tracking-tight text-rose-400';
+                } else {
+                    totalEl.className = 'text-2xl font-black tracking-tight text-gray-300';
+                }
+
+                let stockHtml = '';
+                for (const [sym, pnl] of Object.entries(stockPnL)) {
+                    const pnlClass = pnl > 0 ? 'text-emerald-400' : (pnl < 0 ? 'text-rose-400' : 'text-gray-400');
+                    const sign = pnl > 0 ? '+' : (pnl < 0 ? '-' : '');
+                    stockHtml += `
+                        <div class="bg-[#1a1625] border border-[#2d2640] rounded-lg px-3 py-1.5 flex items-center gap-3">
+                            <span class="data-label text-[10px] m-0">${sym}</span>
+                            <span class="font-mono font-bold text-sm ${pnlClass}">${sign}₹ ${Math.abs(pnl).toFixed(2)}</span>
+                        </div>
+                    `;
+                }
+                if (Object.keys(stockPnL).length === 0) {
+                    stockHtml = '<div class="text-sm text-gray-500 italic">No trades today</div>';
+                }
+                summaryContainer.innerHTML = stockHtml;
+            }
+
+            // DOM refs
+            const lastUpdateTime = document.getElementById('lastUpdateTime');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            function el(id) { return document.getElementById(id); }
+
+            function formatExpiryDate(expiry) {
+                if (!expiry) return "--";
+                const match = expiry.match(/^(\d{1,2})([A-Z]{3})(\d{4})$/i);
+                if (match) {
+                    const day = match[1].padStart(2, '0');
+                    const month = match[2].charAt(0).toUpperCase() + match[2].toLowerCase().slice(1);
+                    const year = match[3];
+                    return `${day}-${month}-${year}`;
+                }
+                return expiry;
+            }
+
+            // ─── Set Box Status Badge ───
+            function setBoxStatus(idx, type, msg) {
+                const badge = el(`boxStatus${idx}`);
+                badge.className = 'box-status-badge';
+                if (type === 'live') {
+                    badge.classList.add('box-status-live');
+                    badge.innerHTML = `<span class="status-dot status-live" style="width:6px;height:6px;margin:0;"></span> ${msg || 'Live'}`;
+                } else if (type === 'loading') {
+                    badge.classList.add('box-status-loading');
+                    badge.innerHTML = `<span style="width:10px;height:10px;border:2px solid rgba(245,158,11,0.3);border-top-color:#f59e0b;border-radius:50%;animation:spin 0.5s linear infinite;display:inline-block;"></span> ${msg || 'Loading...'}`;
+                } else if (type === 'error') {
+                    badge.classList.add('box-status-error');
+                    badge.innerHTML = `<i class="ph ph-warning" style="font-size:0.7rem;"></i> ${msg || 'Error'}`;
+                } else {
+                    badge.classList.add('box-status-idle');
+                    badge.innerHTML = `<span class="status-dot" style="width:6px;height:6px;margin:0;background:#5a5478;"></span> ${msg || 'Idle'}`;
+                }
+            }
+
+            // ─── Global Status ───
+            function setGlobalStatus(type, msg) {
+                statusDot.className = 'status-dot';
+                if (type === 'live') statusDot.classList.add('status-live');
+                else if (type === 'error') statusDot.classList.add('status-error');
+                else if (type === 'fetching') statusDot.classList.add('status-fetching');
+                statusText.innerText = msg;
+            }
+
+            // ─── Open Specific Trade in Calculator ───
+            window.openCalcSpecificTrade = function(e, tradeId) {
+                if (e) e.stopPropagation();
+                const t = tradeBook.find(x => x.id === tradeId);
+                if (!t) return;
+                
+                const params = new URLSearchParams({
+                    strike: t.strike,
+                    direction: t.direction.toLowerCase(),
+                    qty: t.qty,
+                    entrySpot: t.entrySpot || '',
+                    entryCE: t.entryCall || '',
+                    entryPE: t.entryPut || '',
+                    exitSpot: t.exitSpot || '',
+                    exitCE: t.exitCall || '',
+                    exitPE: t.exitPut || ''
+                });
+                
+                window.open(`position_calculator.html?${params.toString()}`, '_blank');
+            };
+
+            // ─── Market Time Compression Helpers ───
+            // Removes non-market hours from chart so multi-day data is seamless
+            const MKT_OPEN_MIN = 9 * 60 + 15;    // 555 min from midnight
+            const MKT_CLOSE_MIN = 15 * 60 + 30;   // 930 min from midnight
+            const MKT_DURATION_MIN = MKT_CLOSE_MIN - MKT_OPEN_MIN; // 375 min
+            const MKT_REF_EPOCH = new Date(2020, 0, 1).valueOf();
+
+            function toMarketX(timestamp) {
+                const d = new Date(timestamp);
+                const dayDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const dayIndex = Math.floor((dayDate.valueOf() - MKT_REF_EPOCH) / 86400000);
+                const timeMin = d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60;
+                const marketMin = Math.max(0, Math.min(timeMin - MKT_OPEN_MIN, MKT_DURATION_MIN));
+                return dayIndex * MKT_DURATION_MIN + marketMin;
+            }
+
+            function fromMarketX(marketX) {
+                const dayIndex = Math.floor(marketX / MKT_DURATION_MIN);
+                const withinDay = marketX - (dayIndex * MKT_DURATION_MIN);
+                const totalMin = MKT_OPEN_MIN + withinDay;
+                const h = Math.floor(totalMin / 60);
+                const m = Math.floor(totalMin % 60);
+                const s = Math.floor((totalMin % 1) * 60);
+                const date = new Date(MKT_REF_EPOCH + dayIndex * 86400000);
+                date.setHours(h, m, s, 0);
+                return date;
+            }
+
+            // Get today's market X range for chart defaults
+            function getTodayMarketXRange() {
+                const now = new Date();
+                const openTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 15, 0).valueOf();
+                const closeTs = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 15, 30, 0).valueOf();
+                return { min: toMarketX(openTs), max: toMarketX(closeTs) };
+            }
+
+            // ─── Date Change Highlight Plugin ───
+            const dateChangePlugin = {
+                id: 'dateChangeHighlight',
+                afterDraw(chart) {
+                    // Collect all P/D data points across all expiry datasets
+                    let allData = [];
+                    chart.data.datasets.forEach(ds => {
+                        if (ds.label && ds.label.startsWith('P/D')) {
+                            allData = allData.concat(ds.data);
+                        }
+                    });
+                    allData.sort((a, b) => a.x - b.x);
+                    const dataset = { data: allData };
+                    if (!dataset.data || dataset.data.length < 2) return;
+
+                    const ctx = chart.ctx;
+                    const xScale = chart.scales.x;
+                    const yScale = chart.scales.y;
+                    const data = dataset.data;
+
+                    // Find day boundaries in compressed market-X space
+                    let prevDayIndex = null;
+                    for (let i = 0; i < data.length; i++) {
+                        const pt = data[i];
+                        const mx = pt.x;
+                        const currentDayIndex = Math.floor(mx / MKT_DURATION_MIN);
+
+                        if (prevDayIndex !== null && currentDayIndex !== prevDayIndex) {
+                            // Draw vertical line at this point
+                            const xPixel = xScale.getPixelForValue(mx);
+                            if (xPixel >= xScale.left && xPixel <= xScale.right) {
+                                const realDate = fromMarketX(mx);
+                                const dateStr = realDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+
+                                ctx.save();
+                                // Dashed vertical line
+                                ctx.beginPath();
+                                ctx.setLineDash([6, 4]);
+                                ctx.strokeStyle = 'rgba(251, 191, 36, 0.6)';
+                                ctx.lineWidth = 1.5;
+                                ctx.moveTo(xPixel, yScale.top);
+                                ctx.lineTo(xPixel, yScale.bottom);
+                                ctx.stroke();
+
+                                // Semi-transparent background band
+                                ctx.fillStyle = 'rgba(251, 191, 36, 0.06)';
+                                ctx.fillRect(xPixel - 1, yScale.top, 3, yScale.bottom - yScale.top);
+
+                                // Date label
+                                ctx.font = 'bold 10px Inter, sans-serif';
+                                ctx.fillStyle = 'rgba(251, 191, 36, 0.9)';
+                                ctx.textAlign = 'center';
+                                ctx.fillText(dateStr, xPixel, yScale.top - 4);
+                                ctx.restore();
+                            }
+                        }
+                        prevDayIndex = currentDayIndex;
+                    }
+                }
+            };
+
+            // ─── Create Chart Instance ───
+            function createChartInstance(ctxId, color) {
+                const ctx = document.getElementById(ctxId).getContext('2d');
+
+                return new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            // No initial P/D datasets — they are created dynamically per expiry
+                            {
+                                label: 'Entry',
+                                data: [],
+                                backgroundColor: '#10b981',
+                                borderColor: '#064e3b',
+                                borderWidth: 2,
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                pointStyle: 'triangle',
+                                rotation: function(context) {
+                                    if (context.raw && context.raw.tradeDetails && context.raw.tradeDetails.direction === 'SHORT') return 180;
+                                    return 0;
+                                },
+                                showLine: false
+                            },
+                            {
+                                label: 'Exit',
+                                data: [],
+                                backgroundColor: '#ef4444',
+                                borderColor: '#7f1d1d',
+                                borderWidth: 2,
+                                pointRadius: 6,
+                                pointHoverRadius: 8,
+                                pointStyle: 'circle',
+                                showLine: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: { duration: 0 },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                suggestedMin: getTodayMarketXRange().min,
+                                suggestedMax: getTodayMarketXRange().max,
+                                display: true,
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                ticks: {
+                                    color: '#8b85a1',
+                                    font: { size: 10 },
+                                    stepSize: 15,
+                                    callback: function(value) {
+                                        const realDate = fromMarketX(value);
+                                        return realDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
+                                    }
+                                }
+                            },
+                            y: {
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                ticks: { color: '#8b85a1', font: { size: 10 } }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: {
+                                    color: '#8b85a1',
+                                    font: { size: 10, family: 'Inter' },
+                                    boxWidth: 12,
+                                    padding: 8,
+                                    filter: function(item) {
+                                        // Only show P/D expiry datasets in legend, hide Entry/Exit
+                                        return item.text && item.text.startsWith('P/D');
+                                    }
+                                }
+                            },
+                            tooltip: { 
+                                enabled: true,
+                                callbacks: {
+                                    title: function(tooltipItems) {
+                                        if (tooltipItems.length > 0) {
+                                            const raw = tooltipItems[0].raw;
+                                            const realDate = raw._realTime ? new Date(raw._realTime) : fromMarketX(tooltipItems[0].parsed.x);
+                                            const dateStr = realDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                                            const timeStr = realDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                                            return `${dateStr}  ${timeStr}`;
+                                        }
+                                        return '';
+                                    },
+                                    label: function(context) {
+                                        const dsLabel = context.dataset.label;
+                                        if (dsLabel && dsLabel.startsWith('P/D')) return `${dsLabel}: ${context.parsed.y}`;
+                                        
+                                        const raw = context.raw;
+                                        if (raw && raw.tradeDetails) {
+                                            const t = raw.tradeDetails;
+                                            if (dsLabel === 'Entry') {
+                                                return [
+                                                    `ENTRY (${t.direction}) @ ${t.entryTime}`,
+                                                    `Qty: ${t.lots||1}L (${t.qty}) | Strike: ${t.strike}`,
+                                                    `Spot: ${t.entrySpot} | CE: ${t.entryCall} | PE: ${t.entryPut}`,
+                                                    `P/D: ${context.parsed.y}`
+                                                ];
+                                            } else if (dsLabel === 'Exit') {
+                                                return [
+                                                    `EXIT (${t.direction}) @ ${t.exitTime}`,
+                                                    `Qty: ${t.lots||1}L (${t.qty}) | Strike: ${t.strike}`,
+                                                    `Spot: ${t.exitSpot} | CE: ${t.exitCall} | PE: ${t.exitPut}`,
+                                                    `Net P/L: ₹${t.finalPnL ? t.finalPnL.toFixed(2) : '0.00'}`,
+                                                    `P/D: ${context.parsed.y}`
+                                                ];
+                                            }
+                                        }
+                                        return `${dsLabel}: ${context.parsed.y}`;
+                                    }
+                                }
+                            },
+                            zoom: {
+                                pan: { enabled: true, mode: 'x' },
+                                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+                            }
+                        }
+                    },
+                    plugins: [dateChangePlugin]
+                });
+            }
+
+            function initCharts() {
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    boxChart[i] = createChartInstance(`miniCalcChart${i}`, CHART_COLORS[i]);
+                }
+            }
+
+            // ─── Start / Restart a Box ───
+            function startBox(idx) {
+                const input = el(`symbolInput${idx}`);
+                const symbol = input.value.trim().toUpperCase();
+                if (!symbol) {
+                    setBoxStatus(idx, 'error', 'Enter a symbol');
+                    return;
+                }
+
+                // If same symbol already active, do nothing
+                if (boxSymbol[idx] === symbol && boxTimer[idx]) return;
+
+                // Stop existing poll
+                stopBox(idx);
+
+                // Fresh start on box configuration
+                boxHistory[idx] = [];
+                boxExpiryMap[idx] = {};
+                boxActiveExpiry[idx] = null;
+                boxShowAllExpiries[idx] = false;
+                updateShowAllBtn(idx);
+                rebuildChartDatasets(idx);
+
+                // Reset alerts (up & down)
+                boxAlertUpTarget[idx] = null;
+                boxAlertUpActive[idx] = false;
+                boxAlertUpTriggered[idx] = false;
+                const alertUpBtn = el(`setAlertUpBtn${idx}`);
+                alertUpBtn.innerText = 'Set';
+                alertUpBtn.className = 'bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded transition';
+
+                boxAlertDownTarget[idx] = null;
+                boxAlertDownActive[idx] = false;
+                boxAlertDownTriggered[idx] = false;
+                const alertDownBtn = el(`setAlertDownBtn${idx}`);
+                alertDownBtn.innerText = 'Set';
+                alertDownBtn.className = 'bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded transition';
+
+                // Set symbol
+                boxSymbol[idx] = symbol;
+                input.value = symbol;
+                setBoxStatus(idx, 'loading', `Loading ${symbol}...`);
+
+                renderTradeDetails(idx);
+                
+                // Hydrate chart from backend database, then run polling loop
+                loadTicksFromDB(symbol, idx).then(() => {
+                    runBoxLoop(idx);
+                });
+            }
+
+            function stopBox(idx) {
+                if (boxTimer[idx]) {
+                    clearTimeout(boxTimer[idx]);
+                    boxTimer[idx] = null;
+                }
+                boxFetching[idx] = false;
+            }
+
+            function triggerFetch(idx) {
+                if (!boxSymbol[idx]) return;
+                stopBox(idx);
+                runBoxLoop(idx);
+            }
+
+            // ─── Fetch Data for One Box ───
+            async function fetchSymbolData(symbol, idx) {
+                try {
+                    let url = `${_tradeApiBase}/api/symbol/synthetic?symbol=${encodeURIComponent(symbol)}`;
+                    const staticStrike = el(`strikeInput${idx}`).value;
+                    if (staticStrike) url += `&strike=${encodeURIComponent(staticStrike)}`;
+                    const selectedExpiry = el(`expirySelect${idx}`) ? el(`expirySelect${idx}`).value : null;
+                    if (selectedExpiry) url += `&expiry=${encodeURIComponent(selectedExpiry)}`;
+                    const res = await fetch(url);
+                    return await res.json();
+                } catch (e) {
+                    return { success: false, error: e.message };
+                }
+            }
+
+            // ─── Display Result in a Box ───
+            function displayBoxResult(idx, data) {
+                el(`synthResult${idx}`).innerText = data.synthetic_future.toFixed(2);
+                el(`ceResult${idx}`).innerText = `₹${data.call_price.toFixed(2)}`;
+                el(`peResult${idx}`).innerText = `₹${data.put_price.toFixed(2)}`;
+                el(`spotResult${idx}`).innerText = `₹${data.underlying.toFixed(2)}`;
+                el(`atmStrikeDisplay${idx}`).innerText = `ATM Strike: ${data.strike}`;
+                
+                if (data.available_expiries && data.available_expiries.length > 0) {
+                    const sel = el(`expirySelect${idx}`);
+                    const currentOptions = Array.from(sel.options).map(o => o.value);
+                    const newOptions = data.available_expiries;
+                    
+                    const needsRebuild = currentOptions.length !== newOptions.length || 
+                                         !currentOptions.every((val, index) => val === newOptions[index]);
+                                         
+                    if (needsRebuild) {
+                        sel.innerHTML = '';
+                        newOptions.forEach(exp => {
+                            const opt = document.createElement('option');
+                            opt.value = exp;
+                            opt.text = formatExpiryDate(exp);
+                            sel.appendChild(opt);
+                        });
+                    }
+                    
+                    if (sel.value !== data.expiry) {
+                        sel.value = data.expiry;
+                    }
+                    
+                    sel.style.display = 'inline-block';
+                    el(`expiryLabel${idx}`).style.display = 'none';
+                } else {
+                    el(`expirySelect${idx}`).style.display = 'none';
+                    el(`expiryLabel${idx}`).style.display = 'inline-block';
+                    el(`expiryLabel${idx}`).innerText = data.expiry ? formatExpiryDate(data.expiry) : '';
+                }
+
+                const diff = data.premium_discount;
+                const diffEl = el(`diffResult${idx}`);
+                diffEl.innerText = diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2);
+                diffEl.className = `text-lg font-bold ${diff >= 0 ? 'value-green' : 'value-red'}`;
+
+                // Auto-update lot size for Live Arb Tracker
+                if (data.lot_size) {
+                    const lotMultInput = el(`liveLotMult${idx}`);
+                    if (lotMultInput && lotMultInput.dataset.symbol !== data.symbol) {
+                        lotMultInput.value = data.lot_size;
+                        lotMultInput.dataset.symbol = data.symbol;
+                        updateQty(idx);
+                    }
+                }
+
+                // Update Live Tracker if active
+                if (liveTrackerState[idx] && liveTrackerState[idx].active) {
+                    const lt = liveTrackerState[idx];
+                    const netEl = el(`liveNetPnL${idx}`);
+                    
+                    if (Number(data.strike) === Number(lt.lockedStrike)) {
+                        const curSpot = data.underlying;
+                        const curCall = data.call_price;
+                        const curPut = data.put_price;
+                        
+                        let spotPnL = 0, callPnL = 0, putPnL = 0;
+                        if (lt.direction === 'long') {
+                            spotPnL = (lt.entrySpot - curSpot) * lt.lotMult; // Hedge: Short Spot
+                            callPnL = (curCall - lt.entryCall) * lt.lotMult; // Long Call
+                            putPnL = (lt.entryPut - curPut) * lt.lotMult;    // Short Put
+                        } else {
+                            spotPnL = (curSpot - lt.entrySpot) * lt.lotMult; // Hedge: Long Spot
+                            callPnL = (lt.entryCall - curCall) * lt.lotMult; // Short Call
+                            putPnL = (curPut - lt.entryPut) * lt.lotMult;    // Long Put
+                        }
+                        const totalPnL = spotPnL + callPnL + putPnL;
+                        
+                        netEl.innerText = '₹ ' + Math.abs(totalPnL).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        if (totalPnL > 0) {
+                            netEl.innerText = '+ ' + netEl.innerText;
+                            netEl.style.color = '#34d399';
+                        } else if (totalPnL < 0) {
+                            netEl.innerText = '- ' + netEl.innerText;
+                            netEl.style.color = '#f87171';
+                        } else {
+                            netEl.style.color = '#8b85a1';
+                        }
+                    } else {
+                        netEl.innerText = '--';
+                        netEl.style.color = '#8b85a1';
+                        netEl.title = 'Strike mismatch! Tracked strike ' + lt.lockedStrike + ' differs from box strike ' + data.strike;
+                    }
+                }
+
+                // Check alert
+                checkAlert(idx, diff);
+
+                // Update trade list with live P/L
+                renderTradeDetails(idx, data);
+            }
+
+            // ─── Box Polling Loop ───
+            async function runBoxLoop(idx) {
+                const symbol = boxSymbol[idx];
+                if (!symbol) return;
+                if (boxFetching[idx]) return;
+
+                boxFetching[idx] = true;
+                const startTime = Date.now();
+
+                try {
+                    const data = await fetchSymbolData(symbol, idx);
+                    const currentTime = Date.now();
+                    if (data.success) {
+                        lastFetchData[idx] = data; // Save for Live Tracker
+                        displayBoxResult(idx, data);
+                        setBoxStatus(idx, 'live', symbol);
+
+                        // Update chart
+                        const diff = data.premium_discount;
+                        
+                        const now = new Date(currentTime);
+                        const hh = now.getHours();
+                        const mm = now.getMinutes();
+                        const ss = now.getSeconds();
+                        const timeInSec = hh * 3600 + mm * 60 + ss;
+                        // 09:15:00 = 33300 sec, 15:30:00 = 55800 sec
+                        if (timeInSec >= 33300 && timeInSec <= 55800) {
+                            // Add to history
+                            boxHistory[idx].push({
+                                time: currentTime,
+                                spot: data.underlying,
+                                call: data.call_price,
+                                put: data.put_price,
+                                synthetic: data.synthetic_future,
+                                strike: data.strike,
+                                expiry: data.expiry,
+                                diff: parseFloat(diff.toFixed(2))
+                            });
+
+                            // Route to correct expiry dataset
+                            const expiry = data.expiry || 'unknown';
+
+                            // Detect expiry change — switch chart view to new expiry
+                            if (boxActiveExpiry[idx] !== null && boxActiveExpiry[idx] !== expiry) {
+                                boxActiveExpiry[idx] = expiry;
+                                boxShowAllExpiries[idx] = false;
+                                updateShowAllBtn(idx);
+                                rebuildChartDatasets(idx);
+                            } else if (boxActiveExpiry[idx] === null) {
+                                boxActiveExpiry[idx] = expiry;
+                            }
+
+                            if (boxExpiryMap[idx][expiry] === undefined) {
+                                // New expiry detected — rebuild chart datasets
+                                rebuildChartDatasets(idx);
+                            } else {
+                                const dsIdx = boxExpiryMap[idx][expiry];
+                                const dsData = boxChart[idx].data.datasets[dsIdx].data;
+                                const currentXVal = toMarketX(currentTime);
+                                if (dsData.length > 0) {
+                                    const prevPt = dsData[dsData.length - 1];
+                                    const prevXVal = prevPt.x;
+                                    // Filter out existing null points to get the last valid coordinates
+                                    let lastValidX = prevXVal;
+                                    for (let k = dsData.length - 1; k >= 0; k--) {
+                                        if (dsData[k].y !== null) {
+                                            lastValidX = dsData[k].x;
+                                            break;
+                                        }
+                                    }
+                                    const day1 = Math.floor(lastValidX / MKT_DURATION_MIN);
+                                    const day2 = Math.floor(currentXVal / MKT_DURATION_MIN);
+                                    if (day1 !== day2) {
+                                        // Day boundary detected! Insert a null point to break the line.
+                                        dsData.push({ x: (lastValidX + currentXVal) / 2, y: null });
+                                    }
+                                }
+                                dsData.push({ x: currentXVal, y: parseFloat(diff.toFixed(2)), _realTime: currentTime });
+                                boxChart[idx].update();
+                            }
+
+                            // Auto-save to localStorage every 10 points
+                            if (boxHistory[idx].length % 10 === 0) saveBoxData(idx);
+                        }
+
+                        // Update global clock
+                        lastUpdateTime.innerText = new Date(currentTime).toLocaleTimeString();
+                        updateGlobalStatus();
+                    } else {
+                        setBoxStatus(idx, 'error', data.error || 'Failed');
+                    }
+                } catch (err) {
+                    setBoxStatus(idx, 'error', err.message || 'Network error');
+                } finally {
+                    boxFetching[idx] = false;
+                    // Schedule next poll only if this symbol is still active
+                    // Stagger boxes: box0 at +0ms, box1 at +1000ms, box2 at +2000ms
+                    if (boxSymbol[idx] === symbol) {
+                        const elapsed = Date.now() - startTime;
+                        const baseInterval = 3000; // 3s per box
+                        const stagger = idx * 1000; // offset per box to avoid concurrent calls
+                        const delay = Math.max(100, baseInterval - elapsed + stagger);
+                        boxTimer[idx] = setTimeout(() => runBoxLoop(idx), delay);
+                    }
+                }
+            }
+
+            // ─── Update Global Status Dot ───
+            function updateGlobalStatus() {
+                const activeBoxes = boxSymbol.filter(s => s !== null).length;
+                const liveBoxes = [];
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    if (boxSymbol[i] && boxTimer[i]) liveBoxes.push(boxSymbol[i]);
+                }
+                if (liveBoxes.length > 0) {
+                    setGlobalStatus('live', `Live: ${liveBoxes.join(', ')}`);
+                } else {
+                    setGlobalStatus('idle', 'Ready');
+                }
+            }
+
+            // ─── Chart Toggle ───
+            function toggleChart(idx) {
+                boxChartVisible[idx] = !boxChartVisible[idx];
+                const container = el(`chartContainer${idx}`);
+                const btn = el(`toggleChart${idx}`);
+                if (boxChartVisible[idx]) {
+                    container.style.display = 'block';
+                    btn.innerHTML = '<i class="ph ph-caret-down"></i> Hide Chart';
+                } else {
+                    container.style.display = 'none';
+                    btn.innerHTML = '<i class="ph ph-caret-up"></i> Show Chart';
+                }
+            }
+
+            function resetChartZoom(idx) {
+                if (boxChart[idx]) boxChart[idx].resetZoom();
+            }
+
+            // ─── Toggle Show All Expiries ───
+            function toggleAllExpiries(idx) {
+                boxShowAllExpiries[idx] = !boxShowAllExpiries[idx];
+                updateShowAllBtn(idx);
+                rebuildChartDatasets(idx);
+            }
+
+            function updateShowAllBtn(idx) {
+                const btn = el(`toggleAllExpiries${idx}`);
+                if (!btn) return;
+                if (boxShowAllExpiries[idx]) {
+                    btn.innerHTML = '<i class="ph ph-stack-simple"></i> Current Only';
+                    btn.className = 'text-[10px] flex items-center gap-1 text-amber-400 transition cursor-pointer bg-amber-500/10 border border-amber-500/40 rounded px-2 py-0.5';
+                } else {
+                    btn.innerHTML = '<i class="ph ph-stack"></i> Show All';
+                    btn.className = 'text-[10px] flex items-center gap-1 text-gray-500 hover:text-amber-400 transition cursor-pointer bg-transparent border border-[#2d2640] hover:border-amber-500/40 rounded px-2 py-0.5';
+                }
+            }
+
+            // ─── Clear Chart Data ───
+            function clearChartData(idx) {
+                if (confirm("Are you sure you want to clear the chart history?")) {
+                    boxHistory[idx] = [];
+                    boxExpiryMap[idx] = {};
+                    rebuildChartDatasets(idx);
+                    saveBoxData(idx);
+                }
+            }
+
+            // ─── Export Chart Data ───
+            function exportChartData(idx) {
+                const history = boxHistory[idx];
+                if (history.length === 0) {
+                    alert("No chart data to export yet.");
+                    return;
+                }
+                const sym = boxSymbol[idx] || 'unknown';
+                const today = new Date();
+                let csvContent = "Date,Symbol,Time,Expiry,Strike,Spot,Call,Put,Synthetic,Premium/Discount Diff\n";
+                history.forEach((point) => {
+                    const ptDate = new Date(point.time);
+                    const dateStr = ptDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+                    let timeStr = ptDate.toLocaleTimeString();
+                    csvContent += `${dateStr},${sym},${timeStr},${point.expiry || ''},${point.strike || ''},${point.spot},${point.call},${point.put},${point.synthetic},${point.diff}\n`;
+                });
+
+                // Export ALL trades for this symbol
+                const boxTrades = tradeBook.filter(t => t.symbol === sym);
+                if (boxTrades.length > 0) {
+                    csvContent += "\n--- TRADE DETAILS ---\n";
+                    csvContent += "Trade ID,Status,Direction,Strike,Qty,Expiry,Entry Date,Entry Time,Entry Spot,Entry CE,Entry PE,Entry P/D,Exit Date,Exit Time,Exit Spot,Exit CE,Exit PE,Final Net P/L\n";
+                    boxTrades.forEach(t => {
+                        const entryPD = t.entryPD !== undefined ? t.entryPD : (t.entryCall - t.entryPut);
+                        csvContent += `${t.id},${t.status},${t.direction},${t.strike},${t.qty},${t.expiry || ''},${t.entryDate || ''},${t.entryTime},${t.entrySpot.toFixed(2)},${t.entryCall.toFixed(2)},${t.entryPut.toFixed(2)},${entryPD.toFixed(2)},${t.exitDate || ''},${t.exitTime},${t.exitSpot ? t.exitSpot.toFixed(2) : '0.00'},${t.exitCall ? t.exitCall.toFixed(2) : '0.00'},${t.exitPut ? t.exitPut.toFixed(2) : '0.00'},${t.finalPnL ? t.finalPnL.toFixed(2) : '0.00'}\n`;
+                    });
+                }
+
+                // Use Uint8Array for a true UTF-8 BOM to prevent Excel parsing errors
+                const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement("a");
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                
+                const yyyy = today.getFullYear();
+                const mm = String(today.getMonth() + 1).padStart(2, '0');
+                const dd = String(today.getDate()).padStart(2, '0');
+                const hh = String(today.getHours()).padStart(2, '0');
+                const min = String(today.getMinutes()).padStart(2, '0');
+                const ss = String(today.getSeconds()).padStart(2, '0');
+                
+                link.setAttribute("download", `${sym}_synthetics_${dd}-${mm}-${yyyy}_${hh}-${min}-${ss}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
+
+            // ─── Import Open Trades from CSV ───
+            function importChartData(idx) {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv';
+                input.onchange = e => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    const sym = boxSymbol[idx];
+                    if (!sym) {
+                        alert("Please start the box with a symbol first before importing trades.");
+                        return;
+                    }
+
+                    const reader = new FileReader();
+                    reader.onload = event => {
+                        const content = event.target.result;
+                        const lines = content.split('\n');
+                        let tradeSection = false;
+                        let importedCount = 0;
+                        let importedPoints = 0;
+
+                        // Try to extract date from filename to assign to entryDate if possible
+                        // Format expected: SYMBOL_synthetics_DD-MM-YYYY_HH-mm-ss.csv
+                        let parsedDate = formatDate();
+                        const dateMatch = file.name.match(/_(\d{2})-(\d{2})-(\d{4})_/);
+                        if (dateMatch) {
+                            // Assuming local date format parsing might be tricky, we just use string
+                            // But usually DD-MM-YYYY can be converted to the current locale format
+                            const d = new Date(`${dateMatch[3]}-${dateMatch[2]}-${dateMatch[1]}`);
+                            if (!isNaN(d)) parsedDate = formatDate(d);
+                        }
+
+                        lines.forEach(line => {
+                            if (line.includes('--- TRADE DETAILS ---')) {
+                                tradeSection = true;
+                                return;
+                            }
+                            if (!tradeSection) {
+                                const parts = line.split(',');
+                                // Date,Symbol,Time,Expiry,Strike,Spot,Call,Put,Synthetic,Premium/Discount Diff
+                                if (parts.length >= 10 && parts[0].trim() !== 'Date') {
+                                    const dateStr = parts[0].trim();
+                                    const timeStr = parts[2].trim();
+                                    
+                                    const ptTime = new Date(`${dateStr} ${timeStr}`).valueOf();
+                                    if (!isNaN(ptTime)) {
+                                        if (!boxHistory[idx].find(p => p.time === ptTime)) {
+                                            const diff = parseFloat(parts[9]);
+                                            if (!isNaN(diff)) {
+                                                boxHistory[idx].push({
+                                                    time: ptTime,
+                                                    spot: parseFloat(parts[5]),
+                                                    call: parseFloat(parts[6]),
+                                                    put: parseFloat(parts[7]),
+                                                    synthetic: parseFloat(parts[8]),
+                                                    strike: parts[4].trim(),
+                                                    expiry: parts[3].trim(),
+                                                    diff: diff
+                                                });
+                                                // Chart will be rebuilt after import loop
+                                                importedPoints++;
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                const parts = line.split(',');
+                                // Trade ID,Status,Direction,Strike,Qty,Entry Time,Entry Spot,Entry CE,Entry PE,Exit Time,Exit Spot,Exit CE,Exit PE,Final Net P/L
+                                if (parts.length >= 14 && parts[0].trim() !== 'Trade ID') {
+                                    const status = parts[1].trim();
+                                    if (status === 'OPEN') {
+                                        const id = parseInt(parts[0].trim());
+                                        // check if already exists
+                                        if (!tradeBook.find(t => t.id === id)) {
+                                            const tradeRecord = {
+                                                id: id,
+                                                status: 'OPEN',
+                                                entryDate: parsedDate,
+                                                entryTime: parts[5].trim(),
+                                                exitDate: '--',
+                                                exitTime: '--',
+                                                symbol: sym,
+                                                direction: parts[2].trim(),
+                                                strike: parseFloat(parts[3]),
+                                                qty: parseFloat(parts[4]),
+                                                entrySpot: parseFloat(parts[6]),
+                                                entryCall: parseFloat(parts[7]),
+                                                entryPut: parseFloat(parts[8]),
+                                                entryPD: parseFloat(parts[7]) - parseFloat(parts[8]), // Re-calculated as it's not exported
+                                                exitSpot: 0,
+                                                exitCall: 0,
+                                                exitPut: 0,
+                                                finalPnL: 0
+                                            };
+                                            tradeBook.push(tradeRecord);
+                                            importedCount++;
+                                        }
+                                    }
+                                }
+                            }
+                        });
+
+                        let msg = [];
+                        if (importedCount > 0) {
+                            saveTradeBook();
+                            renderTradeDetails(idx);
+                            msg.push(`${importedCount} OPEN trades`);
+                        }
+                        
+                        if (importedPoints > 0) {
+                            boxHistory[idx].sort((a, b) => a.time - b.time);
+                            rebuildChartDatasets(idx);
+                            saveBoxData(idx);
+                            msg.push(`${importedPoints} graph data points`);
+                        }
+
+                        if (msg.length > 0) {
+                            alert(`Successfully imported:\n- ${msg.join('\n- ')}`);
+                        } else {
+                            alert("No new OPEN trades or valid graph data points found in the selected file.");
+                        }
+                    };
+                    reader.readAsText(file);
+                };
+                input.click();
+            }
+
+            // ─── Alert Logic ───
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+
+            function configureAlert(idx, direction) {
+                const isUp = direction === 'up';
+                const inputEl = el(isUp ? `alertUpTarget${idx}` : `alertDownTarget${idx}`);
+                const btnEl = el(isUp ? `setAlertUpBtn${idx}` : `setAlertDownBtn${idx}`);
+                const val = parseFloat(inputEl.value);
+
+                if (isNaN(val)) {
+                    if (isUp) {
+                        boxAlertUpActive[idx] = false;
+                        boxAlertUpTriggered[idx] = false;
+                        boxAlertUpTarget[idx] = null;
+                        btnEl.innerText = 'Set';
+                        btnEl.className = 'bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded transition';
+                    } else {
+                        boxAlertDownActive[idx] = false;
+                        boxAlertDownTriggered[idx] = false;
+                        boxAlertDownTarget[idx] = null;
+                        btnEl.innerText = 'Set';
+                        btnEl.className = 'bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded transition';
+                    }
+                    return;
+                }
+
+                if ("Notification" in window && Notification.permission !== "granted") {
+                    Notification.requestPermission();
+                }
+
+                if (isUp) {
+                    boxAlertUpTarget[idx] = val;
+                    boxAlertUpActive[idx] = true;
+                    boxAlertUpTriggered[idx] = false;
+                    btnEl.innerText = 'Active ✅';
+                    btnEl.className = 'bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1.5 rounded transition';
+                } else {
+                    boxAlertDownTarget[idx] = val;
+                    boxAlertDownActive[idx] = true;
+                    boxAlertDownTriggered[idx] = false;
+                    btnEl.innerText = 'Active ✅';
+                    btnEl.className = 'bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded transition';
+                }
+            }
+
+            function checkAlert(idx, currentDiff) {
+                // Check Upside Monitor (P/D rises to or above target)
+                if (boxAlertUpActive[idx] && boxAlertUpTarget[idx] !== null && !boxAlertUpTriggered[idx]) {
+                    if (currentDiff >= boxAlertUpTarget[idx]) {
+                        boxAlertUpTriggered[idx] = true;
+                        const btnEl = el(`setAlertUpBtn${idx}`);
+                        btnEl.innerText = '🔔 Hit!';
+                        btnEl.className = 'bg-amber-500 hover:bg-amber-400 text-black text-xs px-3 py-1.5 rounded transition font-bold';
+
+                        playNotificationSound();
+
+                        const sym = boxSymbol[idx] || `Box ${idx + 1}`;
+                        const msg = `⬆ Upside Alert! ${sym} P/D reached ${currentDiff.toFixed(2)} (Target: ≥ ${boxAlertUpTarget[idx]})`;
+
+                        if ("Notification" in window && Notification.permission === "granted") {
+                            new Notification(`⬆ Upside Alert (${sym})`, {
+                                body: msg,
+                                icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png"
+                            });
+                        } else {
+                            console.log(msg);
+                        }
+                    }
+                }
+
+                // Check Downside Monitor (P/D falls to or below target)
+                if (boxAlertDownActive[idx] && boxAlertDownTarget[idx] !== null && !boxAlertDownTriggered[idx]) {
+                    if (currentDiff <= boxAlertDownTarget[idx]) {
+                        boxAlertDownTriggered[idx] = true;
+                        const btnEl = el(`setAlertDownBtn${idx}`);
+                        btnEl.innerText = '🔔 Hit!';
+                        btnEl.className = 'bg-amber-500 hover:bg-amber-400 text-black text-xs px-3 py-1.5 rounded transition font-bold';
+
+                        playNotificationSound();
+
+                        const sym = boxSymbol[idx] || `Box ${idx + 1}`;
+                        const msg = `⬇ Downside Alert! ${sym} P/D reached ${currentDiff.toFixed(2)} (Target: ≤ ${boxAlertDownTarget[idx]})`;
+
+                        if ("Notification" in window && Notification.permission === "granted") {
+                            new Notification(`⬇ Downside Alert (${sym})`, {
+                                body: msg,
+                                icon: "https://cdn-icons-png.flaticon.com/512/1827/1827370.png"
+                            });
+                        } else {
+                            console.log(msg);
+                        }
+                    }
+                }
+            }
+
+            function playNotificationSound() {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    const ctx = new AudioContext();
+                    function playNote(freq, startTime, duration) {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'triangle';
+                        osc.frequency.value = freq;
+                        gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+                        gain.gain.linearRampToValueAtTime(1.0, ctx.currentTime + startTime + 0.05);
+                        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + startTime + duration);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(ctx.currentTime + startTime);
+                        osc.stop(ctx.currentTime + startTime + duration);
+                    }
+                    function playSequence(offset) {
+                        playNote(440.00, offset + 0, 0.4);
+                        playNote(554.37, offset + 0.15, 0.4);
+                        playNote(659.25, offset + 0.3, 0.5);
+                        playNote(880.00, offset + 0.45, 0.8);
+                    }
+                    playSequence(0);
+                    playSequence(1.0);
+                } catch (e) {
+                    console.log("Audio API not supported.");
+                }
+            }
+
+            // ─── Enter key support on symbol inputs ───
+            for (let i = 0; i < NUM_BOXES; i++) {
+                el(`symbolInput${i}`).addEventListener('keydown', (function(idx) {
+                    return function(e) {
+                        if (e.key === 'Enter') startBox(idx);
+                    };
+                })(i));
+            }
+
+            // ─── Initialize ───
+            initCharts();
+            lastUpdateTime.innerText = "Ready";
+
+            // Auto-start Box 1 with NIFTY
+            startBox(0);
+
+            function enterLivePos(idx) {
+                const data = lastFetchData[idx];
+                if (!data || !data.success) {
+                    alert("No data available yet. Wait for a successful scan.");
+                    return;
+                }
+
+                const lt = liveTrackerState[idx];
+                lt.direction = el(`liveDir${idx}`).value;
+                lt.lots = parseFloat(el(`liveLots${idx}`).value) || 1;
+                const lotSize = parseFloat(el(`liveLotMult${idx}`).value) || 50;
+                lt.lotMult = lt.lots * lotSize;
+
+                // LOCK the strike in the box UI
+                el(`strikeInput${idx}`).value = data.strike;
+                
+                lt.lockedStrike = data.strike;
+                lt.entrySpot = data.underlying;
+                lt.entryCall = data.call_price;
+                lt.entryPut = data.put_price;
+                lt.active = true;
+
+                // LOG TRADE ENTRY
+                const tradeRecord = {
+                    id: Date.now(),
+                    status: 'OPEN',
+                    entryDate: formatDate(),
+                    entryTime: new Date().toLocaleTimeString(),
+                    exitDate: '--',
+                    exitTime: '--',
+                    symbol: boxSymbol[idx],
+                    direction: lt.direction.toUpperCase(),
+                    strike: data.strike,
+                    lots: lt.lots,
+                    qty: lt.lotMult,
+                    entrySpot: data.underlying,
+                    entryCall: data.call_price,
+                    entryPut: data.put_price,
+                    entryPD: data.premium_discount,
+                    expiry: data.expiry || '',
+                    exitSpot: 0,
+                    exitCall: 0,
+                    exitPut: 0,
+                    finalPnL: 0
+                };
+                tradeBook.push(tradeRecord);
+                lt.currentTradeId = tradeRecord.id;
+                saveTradeBook();
+                renderTradeDetails(idx);
+
+                // Update UI Entry elements
+                el(`liveLockStrike${idx}`).innerText = data.strike;
+                el(`liveEntrySpot${idx}`).innerText = data.underlying.toFixed(2);
+                el(`liveEntryCall${idx}`).innerText = data.call_price.toFixed(2);
+                el(`liveEntryPut${idx}`).innerText = data.put_price.toFixed(2);
+                el(`liveEntryPD${idx}`).innerText = data.premium_discount > 0 ? '+' + data.premium_discount.toFixed(2) : data.premium_discount.toFixed(2);
+                
+                el(`liveNetPnL${idx}`).innerText = '₹ 0.00';
+                el(`liveNetPnL${idx}`).style.color = '#8b85a1';
+
+                el(`livePanel${idx}`).style.display = 'block';
+                // Keep Entry button visible for concurrent trades
+                el(`btnLiveExit${idx}`).style.display = 'block';
+                
+                // Immediately force a box fetch to transition to the locked strike
+                triggerFetch(idx);
+            }
+
+            function exitLivePos(idx) {
+                const lt = liveTrackerState[idx];
+                const data = lastFetchData[idx];
+
+                if (lt.currentTradeId && data && Number(data.strike) !== Number(lt.lockedStrike)) {
+                    alert(`Cannot exit: Tracked strike is ${lt.lockedStrike} but box is showing ${data.strike}. Switch back to exit accurately.`);
+                    return;
+                }
+
+                // LOG TRADE EXIT
+                if (lt.currentTradeId && data) {
+                    const tradeRecord = tradeBook.find(t => t.id === lt.currentTradeId);
+                    if (tradeRecord) {
+                        const curSpot = data.underlying;
+                        const curCall = data.call_price;
+                        const curPut = data.put_price;
+
+                        let spotPnL = 0, callPnL = 0, putPnL = 0;
+                        if (lt.direction === 'long') {
+                            spotPnL = (lt.entrySpot - curSpot) * lt.lotMult; 
+                            callPnL = (curCall - lt.entryCall) * lt.lotMult; 
+                            putPnL = (lt.entryPut - curPut) * lt.lotMult;    
+                        } else {
+                            spotPnL = (curSpot - lt.entrySpot) * lt.lotMult; 
+                            callPnL = (lt.entryCall - curCall) * lt.lotMult; 
+                            putPnL = (curPut - lt.entryPut) * lt.lotMult;    
+                        }
+                        const totalPnL = spotPnL + callPnL + putPnL;
+
+                        tradeRecord.status = 'CLOSED';
+                        tradeRecord.exitId = Date.now();
+                        tradeRecord.exitDate = formatDate();
+                        tradeRecord.exitTime = new Date().toLocaleTimeString();
+                        tradeRecord.exitSpot = curSpot;
+                        tradeRecord.exitCall = curCall;
+                        tradeRecord.exitPut = curPut;
+                        tradeRecord.finalPnL = totalPnL;
+                        saveTradeBook();
+                        renderTradeDetails(idx);
+                    }
+                }
+
+                liveTrackerState[idx].active = false;
+                
+                el(`livePanel${idx}`).style.display = 'none';
+                el(`btnLiveExit${idx}`).style.display = 'none';
+            }
+
+            async function exitSpecificTrade(e, idx, tradeId) {
+                e.stopPropagation(); // Prevent loadOpenTrade from triggering
+                
+                const tradeRecord = tradeBook.find(t => t.id === tradeId);
+                if (!tradeRecord || tradeRecord.status !== 'OPEN') return;
+
+                let exitData = lastFetchData[idx];
+
+                // If no data or strike mismatch, fetch the correct strike directly
+                if (!exitData || !exitData.success || Number(exitData.strike) !== Number(tradeRecord.strike)) {
+                    const sym = tradeRecord.symbol;
+                    const strike = tradeRecord.strike;
+                    try {
+                        const url = `${_tradeApiBase}/api/symbol/synthetic?symbol=${encodeURIComponent(sym)}&strike=${encodeURIComponent(strike)}`;
+                        const res = await fetch(url);
+                        exitData = await res.json();
+                        if (!exitData || !exitData.success) {
+                            alert(`Could not fetch data for ${sym} strike ${strike}. Market may be closed.`);
+                            return;
+                        }
+                    } catch(err) {
+                        alert(`Failed to fetch exit data: ${err.message}`);
+                        return;
+                    }
+                }
+
+                const curSpot = exitData.underlying;
+                const curCall = exitData.call_price;
+                const curPut = exitData.put_price;
+
+                let spotPnL = 0, callPnL = 0, putPnL = 0;
+                if (tradeRecord.direction.toLowerCase() === 'long') {
+                    spotPnL = (tradeRecord.entrySpot - curSpot) * tradeRecord.qty; 
+                    callPnL = (curCall - tradeRecord.entryCall) * tradeRecord.qty; 
+                    putPnL = (tradeRecord.entryPut - curPut) * tradeRecord.qty;    
+                } else {
+                    spotPnL = (curSpot - tradeRecord.entrySpot) * tradeRecord.qty; 
+                    callPnL = (tradeRecord.entryCall - curCall) * tradeRecord.qty; 
+                    putPnL = (curPut - tradeRecord.entryPut) * tradeRecord.qty;    
+                }
+                const totalPnL = spotPnL + callPnL + putPnL;
+
+                tradeRecord.status = 'CLOSED';
+                tradeRecord.exitId = Date.now();
+                tradeRecord.exitDate = formatDate();
+                tradeRecord.exitTime = new Date().toLocaleTimeString();
+                tradeRecord.exitSpot = curSpot;
+                tradeRecord.exitCall = curCall;
+                tradeRecord.exitPut = curPut;
+                tradeRecord.finalPnL = totalPnL;
+                saveTradeBook();
+                renderTradeDetails(idx, lastFetchData[idx]);
+
+                // If the exited trade was the one currently loaded in the tracker, reset tracker
+                if (liveTrackerState[idx].currentTradeId === tradeId) {
+                    liveTrackerState[idx].active = false;
+                    liveTrackerState[idx].currentTradeId = null;
+                    el(`livePanel${idx}`).style.display = 'none';
+                    el(`btnLiveExit${idx}`).style.display = 'none';
+                }
+            }
+
+            async function closeAllPositions(idx) {
+                const sym = boxSymbol[idx];
+                const openTrades = tradeBook.filter(t => t.symbol === sym && t.status === 'OPEN');
+                
+                if (openTrades.length === 0) return;
+                if (!confirm(`Are you sure you want to close ALL ${openTrades.length} open positions for ${sym}?`)) return;
+
+                const host = window.location.hostname || 'localhost';
+                let closedCount = 0;
+                let failedCount = 0;
+
+                // Group trades by strike to minimize API calls
+                const strikeGroups = {};
+                openTrades.forEach(t => {
+                    const s = String(t.strike);
+                    if (!strikeGroups[s]) strikeGroups[s] = [];
+                    strikeGroups[s].push(t);
+                });
+
+                for (const [strike, trades] of Object.entries(strikeGroups)) {
+                    let exitData = lastFetchData[idx];
+
+                    // Fetch correct data if strike doesn't match
+                    if (!exitData || !exitData.success || Number(exitData.strike) !== Number(strike)) {
+                        try {
+                            const url = `${_tradeApiBase}/api/symbol/synthetic?symbol=${encodeURIComponent(sym)}&strike=${encodeURIComponent(strike)}`;
+                            const res = await fetch(url);
+                            exitData = await res.json();
+                            if (!exitData || !exitData.success) {
+                                failedCount += trades.length;
+                                continue;
+                            }
+                        } catch(err) {
+                            failedCount += trades.length;
+                            continue;
+                        }
+                    }
+
+                    const curSpot = exitData.underlying;
+                    const curCall = exitData.call_price;
+                    const curPut = exitData.put_price;
+
+                    trades.forEach(tradeRecord => {
+                        let spotPnL = 0, callPnL = 0, putPnL = 0;
+                        if (tradeRecord.direction.toLowerCase() === 'long') {
+                            spotPnL = (tradeRecord.entrySpot - curSpot) * tradeRecord.qty; 
+                            callPnL = (curCall - tradeRecord.entryCall) * tradeRecord.qty; 
+                            putPnL = (tradeRecord.entryPut - curPut) * tradeRecord.qty;    
+                        } else {
+                            spotPnL = (curSpot - tradeRecord.entrySpot) * tradeRecord.qty; 
+                            callPnL = (tradeRecord.entryCall - curCall) * tradeRecord.qty; 
+                            putPnL = (curPut - tradeRecord.entryPut) * tradeRecord.qty;    
+                        }
+                        const totalPnL = spotPnL + callPnL + putPnL;
+
+                        tradeRecord.status = 'CLOSED';
+                        tradeRecord.exitId = Date.now();
+                        tradeRecord.exitDate = formatDate();
+                        tradeRecord.exitTime = new Date().toLocaleTimeString();
+                        tradeRecord.exitSpot = curSpot;
+                        tradeRecord.exitCall = curCall;
+                        tradeRecord.exitPut = curPut;
+                        tradeRecord.finalPnL = totalPnL;
+                        closedCount++;
+
+                        if (liveTrackerState[idx].currentTradeId === tradeRecord.id) {
+                            liveTrackerState[idx].active = false;
+                            liveTrackerState[idx].currentTradeId = null;
+                            el(`livePanel${idx}`).style.display = 'none';
+                            el(`btnLiveExit${idx}`).style.display = 'none';
+                        }
+                    });
+                }
+
+                if (closedCount > 0) {
+                    saveTradeBook();
+                    renderTradeDetails(idx, lastFetchData[idx]);
+                }
+
+                if (failedCount > 0) {
+                    alert(`${closedCount} trades closed. ${failedCount} could not be closed (market may be closed).`);
+                }
+            }
+
+            function loadOpenTrade(idx, tradeId) {
+                const trade = tradeBook.find(t => t.id === tradeId);
+                if (!trade || trade.status !== 'OPEN') return;
+
+                const lt = liveTrackerState[idx];
+                lt.active = true;
+                lt.direction = trade.direction.toLowerCase();
+                lt.lots = trade.lots || 1;
+                lt.lotMult = trade.qty;
+                lt.entrySpot = trade.entrySpot;
+                lt.entryCall = trade.entryCall;
+                lt.entryPut = trade.entryPut;
+                lt.lockedStrike = trade.strike;
+                lt.currentTradeId = trade.id;
+
+                el(`liveDir${idx}`).value = lt.direction;
+                if (el(`liveLots${idx}`)) el(`liveLots${idx}`).value = lt.lots;
+                if (el(`liveLotMult${idx}`)) el(`liveLotMult${idx}`).value = lt.lotMult / lt.lots;
+                updateQty(idx);
+                el(`liveLockStrike${idx}`).innerText = lt.lockedStrike;
+                el(`liveEntrySpot${idx}`).innerText = lt.entrySpot.toFixed(2);
+                el(`liveEntryCall${idx}`).innerText = lt.entryCall.toFixed(2);
+                el(`liveEntryPut${idx}`).innerText = lt.entryPut.toFixed(2);
+                const pdVal = trade.entryPD !== undefined ? trade.entryPD : (trade.entryCall - trade.entryPut);
+                el(`liveEntryPD${idx}`).innerText = pdVal > 0 ? '+' + pdVal.toFixed(2) : pdVal.toFixed(2);
+                
+                el(`liveNetPnL${idx}`).innerText = '₹ 0.00';
+                el(`liveNetPnL${idx}`).style.color = '#8b85a1';
+
+                el(`livePanel${idx}`).style.display = 'block';
+                // Keep Entry button visible
+                el(`btnLiveExit${idx}`).style.display = 'block';
+
+                el(`strikeInput${idx}`).value = trade.strike;
+                triggerFetch(idx);
+            }
+
+            // ─── Save all box data when page closes ───
+            window.addEventListener('beforeunload', () => {
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    saveBoxData(i);
+                }
+            });
+
+            // ─── Fetch Server IP ───
+            async function fetchServerIP() {
+                try {
+                    const res = await fetch(`${_tradeApiBase}/api/system/ip`);
+                    const data = await res.json();
+                    if (data.success && data.ip) {
+                        const ipSpan = document.getElementById('serverIpDisplay');
+                        ipSpan.textContent = `LAN IP: ${data.ip}`;
+                        ipSpan.classList.remove('hidden');
+                    }
+                } catch (e) {
+                    console.log('Could not fetch server IP', e);
+                }
+            }
+
+            fetchServerIP();
+        </script>
+</body>
+
+</html>

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Chart — Nifty Dashboard</title>
+    <meta name="description" content="Intraday Historical Chart for Spot vs Synthetic Future">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0a1c;
+            color: #ffffff;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ─── Header ─── */
+        .top-header {
+            background: linear-gradient(135deg, #1a1625 0%, #231b2e 100%);
+            border-bottom: 1px solid #2d2640;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .top-header h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #a78bfa, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-link {
+            color: #8b85a1;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .nav-link:hover { color: #fff; background: rgba(255,255,255,0.06); }
+        .nav-link.active { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
+
+        /* ─── Main Content ─── */
+        .main-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 24px;
+        }
+
+        /* ─── Search Area ─── */
+        .search-card {
+            background: linear-gradient(135deg, #1a1625 0%, #1e1a2e 100%);
+            border: 1px solid #2d2640;
+            border-radius: 16px;
+            padding: 24px 28px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+            margin-bottom: 24px;
+        }
+
+        .search-top-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .search-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
+        }
+
+        .search-input {
+            flex: 1;
+            background: #0f0a1c;
+            border: 1px solid #3d3560;
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 500;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+        }
+        .search-input::placeholder { color: #5a5478; }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 28px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124, 58, 237, 0.35); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* ─── Chart Area ─── */
+        .chart-card {
+            background: linear-gradient(145deg, #1a1625, #1e1a2e);
+            border: 1px solid #2d2640;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+            display: none; /* Hidden until searched */
+        }
+        
+        .chart-card.visible {
+            display: block;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #2d2640;
+        }
+
+        .chart-meta h2 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            margin: 0;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: rgba(167, 139, 250, 0.15);
+            color: #c4b5fd;
+            letter-spacing: 0.05em;
+        }
+        
+        .chart-container {
+            position: relative;
+            height: 60vh;
+            width: 100%;
+        }
+
+        /* ─── Spinner ─── */
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #5a5478;
+        }
+        .empty-state i { font-size: 3rem; margin-bottom: 16px; display: block; opacity: 0.6; }
+        .empty-state p { font-size: 1.1rem; }
+
+        .error-msg {
+            color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="top-header">
+        <h1>Nifty Dashboard</h1>
+        <div class="flex gap-3 items-center flex-wrap">
+            <a href="index.html" class="flex gap-2 items-center bg-[rgba(52,211,153,0.05)] hover:bg-[rgba(52,211,153,0.15)] border border-transparent hover:border-[rgba(52,211,153,0.4)] text-emerald-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-chart-line"></i> Auto-Calc
+            </a>
+            <a href="scanner.html" class="flex gap-2 items-center bg-[rgba(167,139,250,0.05)] hover:bg-[rgba(167,139,250,0.15)] border border-transparent hover:border-[rgba(167,139,250,0.4)] text-purple-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-magnifying-glass"></i> Scanner
+            </a>
+            <a href="analyzer.html" class="flex gap-2 items-center bg-[rgba(96,165,250,0.05)] hover:bg-[rgba(96,165,250,0.15)] border border-transparent hover:border-[rgba(96,165,250,0.4)] text-blue-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-chart-polar"></i> Analyzer
+            </a>
+            <a href="historical.html" class="flex gap-2 items-center bg-[rgba(244,114,182,0.15)] border border-pink-500 text-pink-400 px-3 py-1.5 rounded-lg transition no-underline font-bold text-sm">
+                <i class="ph ph-clock-counter-clockwise"></i> Historical Chart
+            </a>
+            <a href="historical_pd.html" class="flex gap-2 items-center bg-[rgba(251,191,36,0.05)] hover:bg-[rgba(251,191,36,0.15)] border border-transparent hover:border-[rgba(251,191,36,0.4)] text-amber-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-trend-up"></i> P/D Chart
+            </a>
+            <a href="position_calculator.html" class="flex gap-2 items-center bg-[rgba(129,140,248,0.05)] hover:bg-[rgba(129,140,248,0.15)] border border-transparent hover:border-[rgba(129,140,248,0.4)] text-indigo-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-calculator"></i> Position Calc
+            </a>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <!-- Search Card -->
+        <div class="search-card">
+            <div class="search-top-row">
+                <div class="search-title">Intraday History</div>
+                <input type="text" id="symbolInput" class="search-input"
+                       placeholder="Enter F&O Symbol (e.g. NIFTY, BANKNIFTY, RELIANCE)..."
+                       autocomplete="off" spellcheck="false">
+                <button id="loadBtn" class="btn-primary" onclick="loadData()">
+                    <i class="ph ph-chart-line-up"></i> Load Chart
+                </button>
+            </div>
+        </div>
+        
+        <div id="errorBox" class="error-msg"></div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state">
+            <i class="ph ph-chart-polar"></i>
+            <p>Enter a symbol above to view its intraday Spot vs Synthetic Future chart.</p>
+        </div>
+
+        <!-- Chart Card -->
+        <div id="chartCard" class="chart-card">
+            <div class="chart-header">
+                <div class="chart-meta">
+                    <h2 id="chartTitle">NIFTY <span class="badge" id="chartDate">Today</span></h2>
+                    <div style="margin-top: 8px; font-size: 0.85rem; color: #8b85a1;">
+                        <span id="chartAtm">ATM Strike: -</span> • 
+                        <span id="chartExpiry">Expiry: -</span>
+                    </div>
+                </div>
+                <button onclick="exportToCSV()" class="btn-primary" style="background:#27203a; border:1px solid #3d3560; color:#c4b5fd;">
+                    <i class="ph ph-download-simple"></i> Export CSV
+                </button>
+            </div>
+            
+            <div class="chart-container">
+                <canvas id="historicalChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const symbolInput = document.getElementById('symbolInput');
+        const loadBtn = document.getElementById('loadBtn');
+        const emptyState = document.getElementById('emptyState');
+        const chartCard = document.getElementById('chartCard');
+        const chartTitle = document.getElementById('chartTitle');
+        const chartDate = document.getElementById('chartDate');
+        const chartAtm = document.getElementById('chartAtm');
+        const chartExpiry = document.getElementById('chartExpiry');
+        const errorBox = document.getElementById('errorBox');
+        
+        let chartInstance = null;
+        let currentApiData = null;
+        let filteredRows = [];
+
+        // Press Enter to load
+        symbolInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') loadData();
+        });
+
+        // Set default value based on URL params or 'NIFTY'
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const sym = urlParams.get('symbol');
+            if (sym) {
+                symbolInput.value = sym;
+                loadData();
+            } else {
+                symbolInput.value = 'NIFTY';
+            }
+        });
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+            emptyState.style.display = 'block';
+            chartCard.classList.remove('visible');
+        }
+
+        function hideError() {
+            errorBox.style.display = 'none';
+        }
+
+        function setBtnLoading(loading) {
+            loadBtn.disabled = loading;
+            if (loading) {
+                loadBtn.innerHTML = '<span class="spinner"></span> Loading...';
+            } else {
+                loadBtn.innerHTML = '<i class="ph ph-chart-line-up"></i> Load Chart';
+            }
+        }
+
+        async function loadData() {
+            const symbol = symbolInput.value.trim().toUpperCase();
+            if (!symbol) return;
+            
+            // Update URL to make it shareable
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + '?symbol=' + symbol;
+            window.history.pushState({path:newUrl}, '', newUrl);
+
+            hideError();
+            setBtnLoading(true);
+            emptyState.style.display = 'none';
+
+            try {
+                // Determine API base (fallback 8000 or scanner 8001 if backend merged)
+                // We assume backend is on port 8000 for standard routes
+                const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+                
+                const res = await fetch(`${API_BASE}/api/market/historical?symbol=${encodeURIComponent(symbol)}`);
+                const data = await res.json();
+
+                if (!data.success) {
+                    throw new Error(data.error || 'Failed to fetch historical data');
+                }
+
+                if (!data.data || data.data.length === 0) {
+                    throw new Error(`Data correctly fetched but empty logic array for ${symbol}. Market might be closed or data unavailable.`);
+                }
+
+                renderChart(data);
+
+            } catch (err) {
+                console.error(err);
+                showError(err.message);
+            } finally {
+                setBtnLoading(false);
+            }
+        }
+
+        function parseISTTime(timeStr) {
+            if (!timeStr) return { dateStr: '', hrs: 0, mins: 0, isValid: false };
+            if (timeStr.includes('T')) {
+                const parts = timeStr.split('T');
+                const dateStr = parts[0]; // "YYYY-MM-DD"
+                const timePart = parts[1].split('+')[0]; // "HH:MM:SS"
+                const timeComponents = timePart.split(':');
+                const hrs = parseInt(timeComponents[0], 10);
+                const mins = parseInt(timeComponents[1], 10);
+                return { dateStr, hrs, mins, isValid: true };
+            } else if (timeStr.length === 5 && timeStr.includes(':')) {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const parts = timeStr.split(':');
+                const hrs = parseInt(parts[0], 10);
+                const mins = parseInt(parts[1], 10);
+                return { dateStr: todayStr, hrs, mins, isValid: true };
+            } else {
+                try {
+                    const d = new Date(timeStr);
+                    if (isNaN(d.valueOf())) return { dateStr: '', hrs: 0, mins: 0, isValid: false };
+                    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+                    const formatted = formatter.format(d);
+                    const parts = formatted.split(', ');
+                    const dateStr = parts[0];
+                    const timeParts = parts[1].split(':');
+                    const hrs = parseInt(timeParts[0], 10);
+                    const mins = parseInt(timeParts[1], 10);
+                    return { dateStr, hrs, mins, isValid: true };
+                } catch (e) {
+                    return { dateStr: '', hrs: 0, mins: 0, isValid: false };
+                }
+            }
+        }
+
+        function renderChart(apiData) {
+            chartCard.classList.add('visible');
+            emptyState.style.display = 'none';
+            currentApiData = apiData;
+
+            // 1. Group rows by date and check for valid data points (spot > 0 and (synthetic > 0 or real_future > 0))
+            const dateValidity = {};
+            apiData.data.forEach(row => {
+                const timeInfo = parseISTTime(row.time);
+                if (!timeInfo.isValid) return;
+                
+                const dateStr = timeInfo.dateStr;
+                if (!dateValidity[dateStr]) {
+                    dateValidity[dateStr] = { totalPoints: 0, validPoints: 0 };
+                }
+                
+                // Strictly filter to Indian standard trading hours only: 09:15 to 15:30
+                const totalMins = timeInfo.hrs * 60 + timeInfo.mins;
+                if (totalMins >= 555 && totalMins <= 930) {
+                    dateValidity[dateStr].totalPoints++;
+                    
+                    const hasValidSynthetic = row.synthetic !== null && row.synthetic !== undefined && row.synthetic > 0;
+                    const hasValidRealFuture = row.real_future !== null && row.real_future !== undefined && row.real_future > 0;
+                    const hasValidSpot = row.spot !== null && row.spot !== undefined && row.spot > 0;
+                    
+                    if (hasValidSpot && (hasValidSynthetic || hasValidRealFuture)) {
+                        dateValidity[dateStr].validPoints++;
+                    }
+                }
+            });
+
+            // 2. Filter rows to show only standard trading hours of dates with valid data
+            filteredRows = apiData.data.filter(row => {
+                const timeInfo = parseISTTime(row.time);
+                if (!timeInfo.isValid) return false;
+
+                const dateStr = timeInfo.dateStr;
+                const validity = dateValidity[dateStr];
+                if (!validity || validity.validPoints === 0) {
+                    return false;
+                }
+
+                const totalMins = timeInfo.hrs * 60 + timeInfo.mins;
+                if (totalMins < 555 || totalMins > 930) {
+                    return false;
+                }
+                return true;
+            });
+
+            // Get date range from filtered data array
+            let dateRangeStr = "No Data";
+            if (filteredRows.length > 0) {
+                const firstInfo = parseISTTime(filteredRows[0].time);
+                const lastInfo = parseISTTime(filteredRows[filteredRows.length-1].time);
+                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                
+                let firstDate = "No Data";
+                if (firstInfo.isValid) {
+                    const fParts = firstInfo.dateStr.split('-');
+                    firstDate = `${months[parseInt(fParts[1], 10) - 1]} ${parseInt(fParts[2], 10)}`;
+                }
+                let lastDate = "No Data";
+                if (lastInfo.isValid) {
+                    const lParts = lastInfo.dateStr.split('-');
+                    lastDate = `${months[parseInt(lParts[1], 10) - 1]} ${parseInt(lParts[2], 10)}`;
+                }
+                dateRangeStr = firstInfo.dateStr === lastInfo.dateStr ? firstDate : `${firstDate} — ${lastDate}`;
+            }
+
+            // Setup Header text
+            chartTitle.innerHTML = `${apiData.symbol} <span class="badge" id="chartDate">${dateRangeStr}</span>`;
+            chartAtm.textContent = `ATM Strike: ${apiData.atm_strike}`;
+            chartExpiry.textContent = `Expiry: ${apiData.expiry || '-'}`;
+
+            // Prepare Chart.js data objects
+            const chartLabels = [];
+            const spotData = [];
+            const synthData = [];
+            const futData = [];
+
+            let prevDateStr = null;
+
+            filteredRows.forEach(row => {
+                const timeInfo = parseISTTime(row.time);
+                if (timeInfo.isValid) {
+                    const dateStr = timeInfo.dateStr;
+                    if (prevDateStr !== null && dateStr !== prevDateStr) {
+                        // Day changed! Push a null value to break the lines, and an empty/break label.
+                        chartLabels.push(""); 
+                        spotData.push(null);
+                        synthData.push(null);
+                        futData.push(null);
+                    }
+                    prevDateStr = dateStr;
+                    
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    const dateParts = dateStr.split('-');
+                    const day = parseInt(dateParts[2], 10);
+                    const month = months[parseInt(dateParts[1], 10) - 1];
+                    const formattedLabel = `${day} ${month}, ${String(timeInfo.hrs).padStart(2, '0')}:${String(timeInfo.mins).padStart(2, '0')}`;
+                    chartLabels.push(formattedLabel);
+                } else {
+                    chartLabels.push(row.time);
+                }
+
+                spotData.push(row.spot);
+                if (row.synthetic !== null && row.synthetic !== undefined) {
+                    synthData.push(row.synthetic);
+                } else {
+                    synthData.push(null);
+                }
+                if (row.real_future !== undefined && row.real_future !== null) {
+                    futData.push(row.real_future);
+                } else {
+                    futData.push(null);
+                }
+            });
+
+            const ctx = document.getElementById('historicalChart').getContext('2d');
+
+            // Destroy previous instance
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            Chart.defaults.color = '#8b85a1';
+            Chart.defaults.font.family = 'Inter';
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: chartLabels,
+                    datasets: [
+                        {
+                            label: 'Spot Price',
+                            data: spotData,
+                            borderColor: '#60a5fa', // Blue
+                            backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.1,
+                            spanGaps: false,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Synthetic Future',
+                            data: synthData,
+                            borderColor: '#a78bfa', // Purple
+                            backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5], 
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.1,
+                            spanGaps: false,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Real Future',
+                            data: futData,
+                            borderColor: '#f59e0b', // Amber/Orange
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            tension: 0.1,
+                            spanGaps: false,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        zoom: {
+                            pan: { enabled: true, mode: 'x' },
+                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 10, 28, 0.9)',
+                            titleColor: '#fff',
+                            bodyColor: '#c9c3d8',
+                            footerColor: '#fbbf24',
+                            footerFont: { weight: 'bold' },
+                            footerMarginTop: 10,
+                            borderColor: '#3d3560',
+                            borderWidth: 1,
+                            padding: 10,
+                            boxPadding: 4,
+                            callbacks: {
+                                title: function(contexts) {
+                                    if (contexts && contexts.length > 0) {
+                                        return contexts[0].label;
+                                    }
+                                    return '';
+                                },
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += context.parsed.y.toFixed(2);
+                                    }
+                                    return label;
+                                },
+                                footer: function(tooltipItems) {
+                                    let spot = null;
+                                    let realFut = null;
+                                    let synthFut = null;
+                                    
+                                    tooltipItems.forEach(function(item) {
+                                        if (item.dataset.label === 'Spot Price') spot = item.parsed.y;
+                                        if (item.dataset.label === 'Real Future') realFut = item.parsed.y;
+                                        if (item.dataset.label === 'Synthetic Future') synthFut = item.parsed.y;
+                                    });
+                                    
+                                    let lines = [];
+                                    if (spot !== null && realFut !== null) {
+                                        let diff = realFut - spot;
+                                        let sign = diff >= 0 ? '+' : '';
+                                        lines.push('Spot to Real Fut Diff: ' + sign + diff.toFixed(2));
+                                    }
+                                    if (spot !== null && synthFut !== null) {
+                                        let diff = synthFut - spot;
+                                        let sign = diff >= 0 ? '+' : '';
+                                        lines.push('Spot to Synth Diff: ' + sign + diff.toFixed(2));
+                                    }
+                                    return lines;
+                                }
+                            }
+                        },
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                padding: 20,
+                                font: {
+                                    size: 13,
+                                    weight: 600
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            type: 'category',
+                            grid: {
+                                color: 'rgba(45, 38, 64, 0.5)',
+                                tickLength: 0
+                            },
+                            ticks: {
+                                maxRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 12,
+                                color: '#8b85a1',
+                                font: {
+                                    weight: 'normal'
+                                }
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right', 
+                            grid: {
+                                color: 'rgba(45, 38, 64, 0.5)',
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(2);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function exportToCSV() {
+            if (!filteredRows || filteredRows.length === 0) {
+                alert("No data available to export.");
+                return;
+            }
+            
+            const symbol = (currentApiData && currentApiData.symbol) || 'EXPORT';
+            let csvContent = "Time,Spot Price,Synthetic Future,Real Future\n";
+            
+            filteredRows.forEach(row => {
+                const syn = row.synthetic !== null && row.synthetic !== undefined ? row.synthetic : '';
+                const fut = row.real_future !== null && row.real_future !== undefined ? row.real_future : '';
+                
+                // Keep the time format readable in IST
+                let timeStr = row.time;
+                if (timeStr && timeStr.includes('T')) {
+                    const d = new Date(timeStr);
+                    if (!isNaN(d.valueOf())) {
+                        timeStr = d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+                    }
+                }
+                
+                csvContent += `"${timeStr}",${row.spot},${syn},${fut}\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            
+            const now = new Date();
+            const dateStr = now.toISOString().split('T')[0];
+            
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `${symbol}_historical_${dateStr}.csv`);
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>

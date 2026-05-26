@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Historical Nifty Dashboard Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f0a1c; color: #ffffff; min-height: 100vh; margin: 0; padding: 20px; }
+        .analyzer-container { max-width: 1400px; margin: 0 auto; }
+        .dark-card { background-color: #1a1625; border: 1px solid #2d2640; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); }
+        .chart-card { background-color: #1a1625; border: 1px solid #2d2640; border-radius: 12px; padding: 16px; margin-top: 16px; height: 600px; position: relative; }
+        .drop-zone { border: 2px dashed #3b82f6; border-radius: 16px; padding: 40px; text-align: center; cursor: pointer; transition: background 0.3s, border-color 0.3s; background-color: rgba(59, 130, 246, 0.05); }
+        .drop-zone:hover, .drop-zone.dragover { background-color: rgba(59, 130, 246, 0.15); border-color: #60a5fa; }
+        .data-label { color: #8b85a1; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .file-list { max-height: 150px; overflow-y: auto; margin-top: 10px; font-size: 0.85rem; color: #a5b4fc; text-align: left; background: #231b2e; border-radius: 8px; padding: 8px; display: none; }
+        .file-list li { margin-bottom: 4px; display: flex; justify-content: space-between; padding-bottom: 4px; border-bottom: 1px solid #2d2640; }
+    </style>
+</head>
+<body>
+    <div class="analyzer-container">
+        <!-- Header -->
+        <div class="top-bar flex-col md:flex-row gap-4 items-start md:items-center">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight">Historical Data Analyzer 📊</h1>
+                <p class="data-label text-xs mt-1">Superimpose multiple CSV files to compare Premium/Discount.</p>
+            </div>
+            <div class="flex gap-3 items-center flex-wrap">
+                <a href="index.html" class="flex gap-2 items-center bg-[rgba(52,211,153,0.1)] hover:bg-[rgba(52,211,153,0.2)] border border-[#2d2640] text-emerald-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-chart-line"></i> Auto-Calc
+                </a>
+                <a href="scanner.html" class="flex gap-2 items-center bg-[rgba(167,139,250,0.1)] hover:bg-[rgba(167,139,250,0.2)] border border-[#2d2640] text-purple-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-magnifying-glass"></i> Scanner
+                </a>
+                <a href="analyzer.html" class="flex gap-2 items-center bg-[rgba(96,165,250,0.25)] border border-blue-500 text-blue-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-chart-polar"></i> Analyzer
+                </a>
+                <a href="historical.html" class="flex gap-2 items-center bg-[rgba(244,114,182,0.1)] hover:bg-[rgba(244,114,182,0.2)] border border-[#2d2640] text-pink-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-clock-counter-clockwise"></i> Historical Chart
+                </a>
+                <a href="historical_pd.html" class="flex gap-2 items-center bg-[rgba(251,191,36,0.1)] hover:bg-[rgba(251,191,36,0.2)] border border-[#2d2640] text-amber-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-trend-up"></i> P/D Chart
+                </a>
+                <a href="position_calculator.html" class="flex gap-2 items-center bg-[rgba(129,140,248,0.05)] hover:bg-[rgba(129,140,248,0.15)] border border-transparent hover:border-[rgba(129,140,248,0.4)] text-indigo-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-calculator"></i> Position Calc
+                </a>
+            </div>
+        </div>
+
+        <div class="dark-card mb-6">
+            <div id="dropZone" class="drop-zone">
+                <i class="ph ph-upload-simple text-4xl text-blue-400 mb-2"></i>
+                <p class="font-medium text-sm mb-1">Drag & Drop your CSV files here</p>
+                <p class="text-xs text-gray-500 mb-4">Or click to select multiple files</p>
+                <input type="file" id="fileInput" multiple accept=".csv" class="hidden">
+                <button type="button" onclick="document.getElementById('fileInput').click()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm transition">Browse Files</button>
+                <ul id="fileList" class="file-list mt-4"></ul>
+            </div>
+        </div>
+
+        <div class="chart-card">
+            <div class="absolute top-2 right-2 z-20 flex gap-2">
+                <button onclick="exportCombinedCSV()" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-blue-400 transition" title="Export Combined CSV">
+                    <i class="ph ph-file-csv"></i>
+                </button>
+                <button onclick="exportChartImage()" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-purple-400 transition" title="Export as PNG Image">
+                    <i class="ph ph-image"></i>
+                </button>
+                <button onclick="if(chart) chart.resetZoom()" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Reset Zoom">
+                    <i class="ph ph-arrows-counter-clockwise"></i>
+                </button>
+            </div>
+            <canvas id="analyzerChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileListObj = document.getElementById('fileList');
+        
+        let chart = null;
+        let datasets = [];
+        
+        const colors = [
+            'rgb(59, 130, 246)', 'rgb(168, 85, 247)', 'rgb(249, 115, 22)', 
+            'rgb(34, 197, 94)', 'rgb(236, 72, 153)', 'rgb(234, 179, 8)', 
+            'rgb(6, 182, 212)'
+        ];
+
+        function initChart() {
+            const ctx = document.getElementById('analyzerChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: { datasets: [] },  // Dynamic datasets
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'minute',
+                                displayFormats: { minute: 'HH:mm' }
+                            },
+                            suggestedMin: new Date('1970-01-01T09:15:00').valueOf(),
+                            suggestedMax: new Date('1970-01-01T15:30:00').valueOf(),
+                            display: true,
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8b85a1', font: { size: 10 } }
+                        },
+                        y: {
+                            title: { display: true, text: 'Premium/Discount' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#8b85a1', font: { size: 10 } }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#fff', boxWidth: 12, usePointStyle: true } },
+                        tooltip: { 
+                            callbacks: {
+                                title: (context) => {
+                                    return new Date(context[0].raw.x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                }
+                            }
+                        },
+                        zoom: {
+                            pan: { enabled: true, mode: 'x' },
+                            zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
+                        }
+                    }
+                }
+            });
+        }
+        initChart();
+
+        // Standardize time formatting
+        function parseToCommonDate(timeStr) {
+            // timeStr can be things like "14:25:31" or "2:25:31 PM"
+            // We prepend a fake date so they all stack beautifully
+            return new Date('1970-01-01T' + timeStr);  
+        }
+
+        function processFiles(files) {
+            if (files.length === 0) return;
+            fileListObj.style.display = 'block';
+            
+            Array.from(files).forEach((file, index) => {
+                const li = document.createElement('li');
+                li.innerText = `${file.name} (Loading...)`;
+                fileListObj.appendChild(li);
+
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: function(results) {
+                        const data = results.data;
+                        let lineData = [];
+                        let mappedName = file.name;
+                        
+                        if (data.length > 0) {
+                            const fRow = data[0];
+                            
+                            // ── Auto-detect CSV format ──
+                            // New format: Date, Symbol, Time, Spot, Call, Put, Synthetic, Premium/Discount Diff
+                            // Old format: Time, Spot, Call, Put, Synthetic, Premium/Discount Diff
+                            const hasNewFormat = fRow['Date'] && fRow['Symbol'];
+                            const hasChartFormat = fRow['Symbol'] && fRow['PremiumDiscount'] !== undefined;
+                            const hasCurDate = fRow['Current Date'];
+                            const hasExpDate = fRow['Expiry Date'];
+                            
+                            if (hasNewFormat) {
+                                mappedName = `${fRow['Symbol']} | ${fRow['Date']}`;
+                            } else if (hasChartFormat) {
+                                mappedName = `${fRow['Symbol']} | Chart Export`;
+                            } else if (hasCurDate && hasExpDate) {
+                                mappedName = `Date: ${hasCurDate} | Exp: ${hasExpDate}`;
+                            } else {
+                                mappedName = file.name.replace('.csv', '');
+                            }
+                            
+                            lineData = data.map(row => {
+                                // Get time column (try multiple column names)
+                                let timeCol = row['Time'] || row['Time of Day'];
+                                if (!timeCol) return null;
+                                
+                                // Clean AM/PM format to 24h for simple Date parsing
+                                let normalizedTimeStr = timeCol;
+                                if(timeCol && (timeCol.toLowerCase().includes('pm') || timeCol.toLowerCase().includes('am'))) {
+                                     const tempD = new Date(`2000-01-01 ${timeCol}`);
+                                     normalizedTimeStr = tempD.toLocaleTimeString('en-US', {hour12: false});
+                                }
+
+                                const parsedTime = new Date(`1970-01-01T${normalizedTimeStr}`);
+                                
+                                // Get P/D value from either format
+                                let pdRaw = row['Premium/Discount Diff'] !== undefined ? row['Premium/Discount Diff'] : 
+                                           (row['PremiumDiscount'] !== undefined ? row['PremiumDiscount'] : 
+                                           (row['P/D'] !== undefined ? row['P/D'] : 0));
+                                
+                                const pdVal = parseFloat(pdRaw);
+                                
+                                return {
+                                    x: parsedTime.valueOf(),
+                                    y: pdVal,
+                                    spot: row['Spot'] || row['underlying'] || row['Spot(LTP)'] || row['LTP'] || '',
+                                    date: row['Date'] || '',
+                                    symbol: row['Symbol'] || ''
+                                };
+                            }).filter(d => d !== null && !isNaN(d.x) && !isNaN(d.y));
+                        }
+
+                        li.innerHTML = `<span>${mappedName}</span> <span class="text-green-400 pl-4">${lineData.length} pts loaded</span>`;
+
+                        const color = colors[chart.data.datasets.length % colors.length];
+                        
+                        chart.data.datasets.push({
+                            label: mappedName,
+                            data: lineData,
+                            borderColor: color,
+                            backgroundColor: color,
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            fill: false,
+                            tension: 0.3
+                        });
+                        
+                        chart.update();
+                    }
+                });
+            });
+        }
+
+        // Drag events
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            processFiles(e.dataTransfer.files);
+        });
+        
+        const customCanvasBackgroundColor = {
+            id: 'customCanvasBackgroundColor',
+            beforeDraw: (chart, args, options) => {
+                const {ctx} = chart;
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-over';
+                ctx.fillStyle = options.color || '#1a1625';
+                ctx.fillRect(0, 0, chart.width, chart.height);
+                ctx.restore();
+            }
+        };
+        Chart.register(customCanvasBackgroundColor);
+
+        function exportCombinedCSV() {
+            if (!chart || chart.data.datasets.length === 0) {
+                alert("No data to export.");
+                return;
+            }
+            
+            // Gather all timestamps
+            let timeSet = new Set();
+            chart.data.datasets.forEach(ds => {
+                ds.data.forEach(pt => timeSet.add(pt.x));
+            });
+            let times = Array.from(timeSet).sort((a,b) => a-b);
+            
+            let header = "Time," + chart.data.datasets.map(ds => `"${ds.label.replace(/"/g, '""')}"`).join(",");
+            let csvLines = [header];
+            
+            times.forEach(t => {
+                let dStr = new Date(t).toLocaleTimeString();
+                let row = [dStr];
+                chart.data.datasets.forEach(ds => {
+                    let pt = ds.data.find(p => p.x === t);
+                    row.push(pt ? pt.y : "");
+                });
+                csvLines.push(row.join(","));
+            });
+            
+            const blob = new Blob([csvLines.join("\n")], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `nifty_analysis_combined_${new Date().getTime()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        
+        function exportChartImage() {
+            if (!chart || chart.data.datasets.length === 0) {
+                alert("No chart to export.");
+                return;
+            }
+            const link = document.createElement('a');
+            link.download = `nifty_analysis_chart_${new Date().getTime()}.png`;
+            link.href = chart.toBase64Image();
+            link.click();
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            processFiles(e.target.files);
+        });
+
+    </script>
+</body>
+</html>

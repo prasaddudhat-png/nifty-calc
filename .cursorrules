@@ -1,0 +1,17 @@
+# Cursor Rules for Nifty Live Arbitrage Tracker
+
+You are an expert AI assistant helping with the Nifty Live Arbitrage Tracker project. 
+
+## Digital Brain (Obsidian Vault)
+We use a "Digital Brain" methodology (located in the `./Digital_Brain/` folder) to maintain persistent project memory, context, and history. 
+Whenever you start a new task, you MUST first read the following files to gain context:
+- `Digital_Brain/00_Context/AI_BRAIN.md` (Core Architecture and System Rules)
+- The relevant SOPs in `Digital_Brain/01_SOPs/` if you are modifying existing patterns.
+
+## Coding Standards
+1. **Frontend**: Use Vanilla HTML, CSS, and JS. Do not introduce frameworks like React or Tailwind unless explicitly requested. Use standard `localStorage` for state persistence.
+2. **Backend**: Python FastAPI. Always respect the `api_lock` and rate limits for the Angel One API. 
+3. **Market Hours**: All data gathering (adding data points to charts or arrays) must be strictly gated to the `09:14:50 - 15:30:30` time window.
+
+## Updating the Brain
+If you make a significant architectural decision, write a new script, or solve a complex bug, you should recommend creating a new markdown note in the `Digital_Brain` (e.g., in `01_SOPs/` or `03_Projects/`) to document it for future sessions. Use Obsidian's `[[Link]]` syntax when referencing other documents in the Brain.

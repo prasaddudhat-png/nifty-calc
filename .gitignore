@@ -1,0 +1,27 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local Config and API credentials (CRITICAL: Do not upload to GitHub!)
+nifty-calc-backend/api_config.json
+api_config.json
+
+# Databases and Local Data
+*.db
+nifty-calc-backend/trades.db
+nifty-calc-backend/instruments.json
+instruments.json
+
+# Logs and Temporary files
+*.log
+nifty-calc-backend/*.txt
+*.bat
+debug_api.txt
+nifty_out.txt

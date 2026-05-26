@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Scanner — Nifty Dashboard</title>
+    <meta name="description" content="Live stock scanner with Implied Volatility, Volume, and OHLC data">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f0a1c;
+            color: #ffffff;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ─── Header ─── */
+        .top-header {
+            background: linear-gradient(135deg, #1a1625 0%, #231b2e 100%);
+            border-bottom: 1px solid #2d2640;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .top-header h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #a78bfa, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-link {
+            color: #8b85a1;
+            text-decoration: none;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .nav-link:hover { color: #fff; background: rgba(255,255,255,0.06); }
+        .nav-link.active { color: #a78bfa; background: rgba(167, 139, 250, 0.1); }
+
+        /* ─── Main Content ─── */
+        .scanner-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px 24px;
+        }
+
+        /* ─── Search Area ─── */
+        .search-card {
+            background: linear-gradient(135deg, #1a1625 0%, #1e1a2e 100%);
+            border: 1px solid #2d2640;
+            border-radius: 16px;
+            padding: 28px 28px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+        }
+
+        .search-top-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .search-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
+        }
+
+        .search-input {
+            flex: 1;
+            background: #0f0a1c;
+            border: 1px solid #3d3560;
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 500;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.15);
+        }
+        .search-input::placeholder { color: #5a5478; }
+
+        .scan-btn {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            padding: 12px 28px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+        .scan-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124, 58, 237, 0.35); }
+        .scan-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* ─── Status + Filter Row ─── */
+        .controls-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .status-area {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-area .dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            display: inline-block; flex-shrink: 0;
+        }
+        .dot-idle { background: #4b5563; }
+        .dot-launching { background: #f59e0b; animation: pulse 1s infinite; }
+        .dot-scanning { background: #3b82f6; animation: pulse 0.8s infinite; }
+        .dot-done { background: #10b981; }
+        .dot-error { background: #ef4444; }
+        .status-text { color: #8b85a1; font-size: 0.78rem; font-weight: 500; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .filter-input {
+            background: #0f0a1c;
+            border: 1px solid #2d2640;
+            border-radius: 8px;
+            padding: 8px 12px;
+            color: #fff;
+            font-size: 0.78rem;
+            outline: none;
+            width: 200px;
+            transition: border-color 0.2s;
+        }
+        .filter-input:focus { border-color: #7c3aed; }
+        .filter-input::placeholder { color: #5a5478; }
+
+        /* ─── Table ─── */
+        .table-wrapper {
+            margin-top: 20px;
+            background: linear-gradient(145deg, #1a1625, #1e1a2e);
+            border: 1px solid #2d2640;
+            border-radius: 14px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .table-scroll {
+            max-height: 65vh;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
+        /* Custom scrollbar */
+        .table-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-scroll::-webkit-scrollbar-track { background: #1a1625; }
+        .table-scroll::-webkit-scrollbar-thumb { background: #3d3560; border-radius: 4px; }
+        .table-scroll::-webkit-scrollbar-thumb:hover { background: #5a5478; }
+
+        .scan-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 1200px;
+        }
+
+        .scan-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .scan-table thead th {
+            background: #231b2e;
+            color: #8b85a1;
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            padding: 12px 14px;
+            text-align: right;
+            border-bottom: 1px solid #2d2640;
+            white-space: nowrap;
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.15s, background 0.15s;
+            position: relative;
+        }
+        .scan-table thead th:first-child { text-align: left; }
+        .scan-table thead th:hover { color: #c4b5fd; background: #2a2240; }
+        .scan-table thead th.sorted { color: #a78bfa; }
+        .scan-table thead th .sort-arrow {
+            display: inline-block;
+            margin-left: 4px;
+            font-size: 0.6rem;
+            opacity: 0.4;
+            transition: opacity 0.15s;
+        }
+        .scan-table thead th.sorted .sort-arrow { opacity: 1; color: #a78bfa; }
+
+        .scan-table tbody tr {
+            border-bottom: 1px solid rgba(45, 38, 64, 0.5);
+            transition: background 0.15s;
+            cursor: pointer;
+        }
+        .scan-table tbody tr:hover { background: rgba(167, 139, 250, 0.06); }
+        .scan-table tbody tr.active-row { background: rgba(167, 139, 250, 0.12); border-left: 3px solid #a78bfa; }
+        .scan-table tbody tr:last-child { border-bottom: none; }
+
+        .scan-table td {
+            padding: 11px 14px;
+            font-size: 0.82rem;
+            font-weight: 500;
+            text-align: right;
+            white-space: nowrap;
+            color: #c9c3d8;
+        }
+        .scan-table td:first-child { text-align: left; }
+
+        .sym-cell {
+            font-weight: 800;
+            font-size: 0.88rem;
+            color: #fff;
+        }
+        .sym-expiry {
+            font-size: 0.62rem;
+            color: #5a5478;
+            font-weight: 500;
+        }
+
+        .val-green { color: #10b981; }
+        .val-red { color: #ef4444; }
+        .val-purple { color: #a78bfa; }
+        .val-blue { color: #60a5fa; }
+        .val-yellow { color: #fbbf24; }
+        .val-dim { color: #6b6588; }
+        .val-premium { color: #10b981; font-weight: 700; }
+        .val-discount { color: #ef4444; font-weight: 700; }
+
+        .change-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .change-badge.positive { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+        .change-badge.negative { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+
+        .error-row td { color: #f87171; font-style: italic; }
+
+        /* ─── Search History ─── */
+        .history-section {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(45, 38, 64, 0.6);
+        }
+
+        .history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .history-label {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #6b6588;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .history-label i { font-size: 0.85rem; }
+
+        .history-clear-btn {
+            background: none;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #ef4444;
+            font-size: 0.65rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .history-clear-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.5);
+        }
+
+        .history-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .history-tag {
+            background: rgba(167, 139, 250, 0.08);
+            border: 1px solid rgba(167, 139, 250, 0.18);
+            color: #c4b5fd;
+            font-size: 0.74rem;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            max-width: 360px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            position: relative;
+        }
+        .history-tag:hover {
+            background: rgba(167, 139, 250, 0.18);
+            border-color: rgba(167, 139, 250, 0.4);
+            color: #fff;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(124, 58, 237, 0.15);
+        }
+        .history-tag .tag-icon {
+            font-size: 0.7rem;
+            opacity: 0.6;
+            flex-shrink: 0;
+        }
+        .history-tag .tag-symbols {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-tag .tag-count {
+            background: rgba(167, 139, 250, 0.2);
+            color: #a78bfa;
+            font-size: 0.6rem;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+        .history-tag .tag-time {
+            color: #5a5478;
+            font-size: 0.6rem;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .history-tag .tag-remove {
+            opacity: 0;
+            color: #ef4444;
+            font-size: 0.7rem;
+            margin-left: 2px;
+            flex-shrink: 0;
+            transition: opacity 0.15s;
+        }
+        .history-tag:hover .tag-remove { opacity: 0.8; }
+        .history-tag .tag-remove:hover { opacity: 1; }
+
+        .history-empty {
+            color: #4b3f6b;
+            font-size: 0.72rem;
+            font-style: italic;
+        }
+
+        /* ─── Empty state ─── */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #5a5478;
+        }
+        .empty-state i { font-size: 2.5rem; margin-bottom: 12px; display: block; }
+        .empty-state p { font-size: 0.9rem; }
+
+        /* ─── Spinner ─── */
+        .spinner {
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            display: inline-block;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── Detail Panel ─── */
+        .detail-panel {
+            margin-top: 20px;
+            background: linear-gradient(145deg, #1a1625, #1e1a2e);
+            border: 1px solid #7c3aed;
+            border-radius: 14px;
+            overflow: hidden;
+            animation: fadeIn 0.3s ease;
+            display: none;
+        }
+        .detail-panel.visible { display: block; }
+
+        .detail-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            background: rgba(124, 58, 237, 0.08);
+            border-bottom: 1px solid #2d2640;
+        }
+        .detail-header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .detail-symbol {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #fff;
+        }
+        .detail-ltp {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .detail-change {
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 8px;
+        }
+        .detail-live-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 1s infinite;
+            display: inline-block;
+        }
+        .detail-close-btn {
+            background: none;
+            border: 1px solid #3d3560;
+            color: #8b85a1;
+            font-size: 0.8rem;
+            padding: 6px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .detail-close-btn:hover { color: #fff; border-color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+
+        .detail-body {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+
+        .detail-grid {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        .detail-item {
+            background: rgba(15, 10, 28, 0.6);
+            border: 1px solid #2d2640;
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .detail-item-label {
+            font-size: 0.65rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6b6588;
+            margin-bottom: 4px;
+        }
+        .detail-item-value {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .detail-item-value.premium { color: #10b981; }
+        .detail-item-value.discount { color: #ef4444; }
+
+        .detail-chart-area {
+            padding: 20px;
+            border-left: 1px solid #2d2640;
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-chart-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6b6588;
+            margin-bottom: 10px;
+        }
+        #pdChart {
+            width: 100%;
+            flex: 1;
+            min-height: 180px;
+            border-radius: 8px;
+            background: rgba(15, 10, 28, 0.6);
+            border: 1px solid #2d2640;
+        }
+
+        /* ─── Responsive ─── */
+        @media (max-width: 768px) {
+            .search-top-row { flex-direction: column; align-items: stretch; }
+            .scan-btn { justify-content: center; }
+            .controls-row { flex-direction: column; align-items: stretch; }
+            .filter-input { width: 100%; }
+            .scanner-container { padding: 16px 12px; }
+            .history-tag { max-width: 100%; }
+            .detail-body { grid-template-columns: 1fr; }
+            .detail-chart-area { border-left: none; border-top: 1px solid #2d2640; }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <div class="top-header">
+        <h1>Nifty Dashboard</h1>
+        <div class="flex gap-3 items-center flex-wrap">
+            <a href="index.html" class="flex gap-2 items-center bg-[rgba(52,211,153,0.05)] hover:bg-[rgba(52,211,153,0.15)] border border-transparent hover:border-[rgba(52,211,153,0.4)] text-emerald-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-chart-line"></i> Auto-Calc
+            </a>
+            <a href="scanner.html" class="flex gap-2 items-center bg-[rgba(167,139,250,0.15)] border border-purple-500 text-purple-400 px-3 py-1.5 rounded-lg transition no-underline font-bold text-sm">
+                <i class="ph ph-magnifying-glass"></i> Scanner
+            </a>
+            <a href="analyzer.html" class="flex gap-2 items-center bg-[rgba(96,165,250,0.05)] hover:bg-[rgba(96,165,250,0.15)] border border-transparent hover:border-[rgba(96,165,250,0.4)] text-blue-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-chart-polar"></i> Analyzer
+            </a>
+            <a href="historical.html" class="flex gap-2 items-center bg-[rgba(244,114,182,0.05)] hover:bg-[rgba(244,114,182,0.15)] border border-transparent hover:border-[rgba(244,114,182,0.4)] text-pink-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-clock-counter-clockwise"></i> Historical Chart
+            </a>
+            <a href="historical_pd.html" class="flex gap-2 items-center bg-[rgba(251,191,36,0.05)] hover:bg-[rgba(251,191,36,0.15)] border border-transparent hover:border-[rgba(251,191,36,0.4)] text-amber-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-trend-up"></i> P/D Chart
+            </a>
+            <a href="position_calculator.html" class="flex gap-2 items-center bg-[rgba(129,140,248,0.05)] hover:bg-[rgba(129,140,248,0.15)] border border-transparent hover:border-[rgba(129,140,248,0.4)] text-indigo-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                <i class="ph ph-calculator"></i> Position Calc
+            </a>
+        </div>
+    </div>
+
+    <div class="scanner-container">
+        <!-- Search Card -->
+        <div class="search-card">
+            <div class="search-top-row">
+                <div class="search-title">Stock Scanner</div>
+                <input type="text" id="symbolInput" class="search-input"
+                       placeholder="RELIANCE, HDFCBANK, TCS, INFY, SBIN..."
+                       autocomplete="off" spellcheck="false">
+                <button id="scanBtn" class="scan-btn" onclick="startScan()">
+                    <i class="ph ph-magnifying-glass"></i> Scan
+                </button>
+                <label title="Auto-scan and export CSV every 30 minutes" style="display:flex; align-items:center; gap:8px; background:rgba(255,255,255,0.05); padding:10px 16px; border-radius:10px; border:1px solid #3d3560; font-size:0.85rem; font-weight:600; cursor:pointer; transition:border-color 0.2s; white-space:nowrap;">
+                    <input type="checkbox" id="autoScanCb" onchange="toggleAutoScan()" style="accent-color:#7c3aed; width:16px; height:16px; cursor:pointer;">
+                    <span id="autoScanText">Auto 30m CSV</span>
+                </label>
+                <button id="exportBtn" onclick="exportTableCSV()" style="display:none; background:#231b2e; border:1px solid #3d3560; color:#60a5fa; border-radius:10px; padding:12px 20px; font-size:0.85rem; font-weight:700; cursor:pointer; transition:all 0.2s; align-items:center; gap:8px; white-space:nowrap;" onmouseover="this.style.borderColor='#60a5fa';this.style.boxShadow='0 4px 16px rgba(96,165,250,0.15)'" onmouseout="this.style.borderColor='#3d3560';this.style.boxShadow='none'">
+                    <i class="ph ph-file-csv"></i> Export CSV
+                </button>
+            </div>
+
+            <div class="controls-row">
+                <div class="status-area">
+                    <span id="statusDot" class="dot dot-idle"></span>
+                    <span id="statusText" class="status-text">Ready to scan</span>
+                </div>
+                <input type="text" id="filterInput" class="filter-input"
+                       placeholder="🔍 Filter results..." oninput="applyFilter()" style="display:none;">
+            </div>
+
+            <!-- Search History -->
+            <div id="historySection" class="history-section" style="display:none;">
+                <div class="history-header">
+                    <span class="history-label">
+                        <i class="ph ph-clock-counter-clockwise"></i> Recent Searches
+                    </span>
+                    <button class="history-clear-btn" onclick="clearHistory()">
+                        <i class="ph ph-trash"></i> Clear
+                    </button>
+                </div>
+                <div id="historyTags" class="history-tags"></div>
+            </div>
+        </div>
+
+        <!-- Results Table -->
+        <div id="tableWrapper" class="table-wrapper" style="display:none;">
+            <div class="table-scroll">
+                <table class="scan-table">
+                    <thead>
+                        <tr>
+                            <th data-col="symbol" onclick="sortBy('symbol')">Symbol <span class="sort-arrow">▲</span></th>
+                            <th data-col="ltp" onclick="sortBy('ltp')">LTP <span class="sort-arrow">▲</span></th>
+                            <th data-col="netChange" onclick="sortBy('netChange')">Change <span class="sort-arrow">▲</span></th>
+                            <th data-col="percentChange" onclick="sortBy('percentChange')">% Chg <span class="sort-arrow">▲</span></th>
+                            <th data-col="ceIV" onclick="sortBy('ceIV')">CE IV <span class="sort-arrow">▲</span></th>
+                            <th data-col="peIV" onclick="sortBy('peIV')">PE IV <span class="sort-arrow">▲</span></th>
+                            <th data-col="volume" onclick="sortBy('volume')">Volume <span class="sort-arrow">▲</span></th>
+                            <th data-col="atmStrike" onclick="sortBy('atmStrike')">ATM <span class="sort-arrow">▲</span></th>
+                            <th data-col="cePremium" onclick="sortBy('cePremium')">CE <span class="sort-arrow">▲</span></th>
+                            <th data-col="pePremium" onclick="sortBy('pePremium')">PE <span class="sort-arrow">▲</span></th>
+                            <th data-col="pd" onclick="sortBy('pd')">P/D <span class="sort-arrow">▲</span></th>
+                            <th data-col="open" onclick="sortBy('open')">Open <span class="sort-arrow">▲</span></th>
+                            <th data-col="high" onclick="sortBy('high')">High <span class="sort-arrow">▲</span></th>
+                            <th data-col="low" onclick="sortBy('low')">Low <span class="sort-arrow">▲</span></th>
+                            <th data-col="close" onclick="sortBy('close')">Close <span class="sort-arrow">▲</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Detail Panel -->
+        <div id="detailPanel" class="detail-panel">
+            <div class="detail-header">
+                <div class="detail-header-left">
+                    <span id="detailSymbol" class="detail-symbol">RELIANCE</span>
+                    <span id="detailLtp" class="detail-ltp" style="color:#fff"></span>
+                    <span id="detailChange" class="detail-change"></span>
+                    <span class="detail-live-dot" title="Live updating"></span>
+                    <span id="detailRefreshStatus" style="color:#6b6588; font-size:0.7rem;">Live</span>
+                </div>
+                <button class="detail-close-btn" onclick="closeDetailPanel()">
+                    <i class="ph ph-x"></i> Close
+                </button>
+            </div>
+            <div class="detail-body">
+                <div class="detail-grid" id="detailGrid">
+                    <!-- Filled dynamically -->
+                </div>
+                <div class="detail-chart-area">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div class="detail-chart-title">Premium / Discount History</div>
+                        <button onclick="exportPDChart()" style="background:#231b2e; border:1px solid #3d3560; color:#8b85a1; font-size:0.7rem; padding:4px 10px; border-radius:6px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:4px;" onmouseover="this.style.color='#fff';this.style.borderColor='#a78bfa'" onmouseout="this.style.color='#8b85a1';this.style.borderColor='#3d3560'">
+                            <i class="ph ph-file-csv"></i> Export CSV
+                        </button>
+                    </div>
+                    <canvas id="pdChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state">
+            <i class="ph ph-magnifying-glass"></i>
+            <p>Enter stock symbols above and click <strong>Scan</strong> to see data</p>
+        </div>
+    </div>
+
+    <script>
+        // ─── Backend Auto-Detection ───
+        const host = window.location.hostname || 'localhost';
+        const protocol = window.location.protocol;
+        const SCANNER_API = protocol === 'file:' ? `http://${host}:8001` : ``;  // Dedicated fast scanner
+        const FALLBACK_API = protocol === 'file:' ? `http://${host}:8000` : ``;  // Main backend fallback
+        let activeAPI = null;  // Will be set after detection
+
+        const symbolInput = document.getElementById('symbolInput');
+        const scanBtn = document.getElementById('scanBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const tableWrapper = document.getElementById('tableWrapper');
+        const tableBody = document.getElementById('tableBody');
+        const filterInput = document.getElementById('filterInput');
+        const emptyState = document.getElementById('emptyState');
+
+        let isScanning = false;
+        let scanResults = [];  // Raw results from API
+        let sortCol = null;
+        let sortAsc = true;
+        let autoScanInterval = null;
+        let autoScanTimeRemaining = 0;
+
+        // Detail panel state
+        let detailSymbol = null;
+        let detailInterval = null;
+        let pdHistory = [];  // {time, value} array for chart
+
+        symbolInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !isScanning) startScan();
+        });
+
+        // Auto-detect which backend is available
+        async function detectBackend() {
+            // Try dedicated scanner backend first (port 8001)
+            try {
+                const res = await fetch(`${SCANNER_API}/api/scanner/status`, { signal: AbortSignal.timeout(2000) });
+                if (res.ok) {
+                    const data = await res.json();
+                    activeAPI = SCANNER_API;
+                    setStatus('done', `⚡ Fast Scanner connected (${data.instruments || 0} instruments)`);
+                    console.log('[Scanner] Connected to dedicated backend :8001');
+                    return;
+                }
+            } catch {}
+
+            // Fallback to main backend (port 8000) - try scanner/status first
+            try {
+                const res = await fetch(`${FALLBACK_API}/api/scanner/status`, { signal: AbortSignal.timeout(2000) });
+                if (res.ok) {
+                    const data = await res.json();
+                    activeAPI = FALLBACK_API;
+                    setStatus('idle', `Connected to main backend (${data.instruments || 0} instruments)`);
+                    console.log('[Scanner] Fallback to main backend :8000 (scanner/status)');
+                    return;
+                }
+            } catch {}
+
+            // Last resort: try any endpoint on port 8000
+            try {
+                const res = await fetch(`${FALLBACK_API}/api/market/indices`, { signal: AbortSignal.timeout(2000) });
+                if (res.ok) {
+                    activeAPI = FALLBACK_API;
+                    setStatus('idle', 'Connected to main backend (port 8000)');
+                    console.log('[Scanner] Fallback to main backend :8000 (market/indices)');
+                    return;
+                }
+            } catch {}
+
+            activeAPI = FALLBACK_API;  // Default to main, will show error on scan
+            setStatus('error', 'No backend detected — start calc.py on port 8000');
+        }
+
+        // Run detection on page load
+        detectBackend();
+
+        function setStatus(type, msg) {
+            statusDot.className = 'dot';
+            statusDot.classList.add(`dot-${type}`);
+            statusText.textContent = msg;
+        }
+
+        function setScanBtnState(scanning) {
+            isScanning = scanning;
+            scanBtn.disabled = scanning;
+            scanBtn.innerHTML = scanning
+                ? '<span class="spinner"></span> Scanning...'
+                : '<i class="ph ph-magnifying-glass"></i> Scan';
+        }
+
+        async function startScan() {
+            const rawInput = symbolInput.value.trim();
+            if (!rawInput) { setStatus('error', 'Please enter at least one symbol'); return; }
+
+            const symbols = rawInput.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+            if (symbols.length === 0) { setStatus('error', 'No valid symbols entered'); return; }
+
+            // Auto-detect backend if not yet done
+            if (!activeAPI) await detectBackend();
+
+            setScanBtnState(true);
+            setStatus('scanning', `Scanning ${symbols.length} symbol${symbols.length > 1 ? 's' : ''}...`);
+
+            const scanStart = performance.now();
+
+            try {
+                let scanData = null;
+                let usedAPI = activeAPI;
+
+                // Try active backend
+                try {
+                    const scanRes = await fetch(`${activeAPI}/api/scanner/scan`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ symbols })
+                    });
+                    scanData = await scanRes.json();
+                } catch (primaryErr) {
+                    // If primary fails, try the other backend
+                    const fallback = activeAPI === SCANNER_API ? FALLBACK_API : SCANNER_API;
+                    console.warn(`Primary backend failed, trying fallback ${fallback}...`);
+                    setStatus('scanning', 'Primary backend unreachable, trying fallback...');
+
+                    const scanRes = await fetch(`${fallback}/api/scanner/scan`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ symbols })
+                    });
+                    scanData = await scanRes.json();
+                    usedAPI = fallback;
+                    activeAPI = fallback;  // Remember the working backend
+                }
+
+                if (!scanData.success) throw new Error(scanData.error || 'Scan failed');
+
+                scanResults = scanData.results;
+                sortCol = null;
+                sortAsc = true;
+                filterInput.value = '';
+
+                // Save to search history
+                saveToHistory(symbols);
+                renderTable(scanResults);
+
+                // Show table + filter
+                tableWrapper.style.display = '';
+                filterInput.style.display = '';
+                emptyState.style.display = 'none';
+                document.getElementById('exportBtn').style.display = 'flex';
+
+                const totalMs = Math.round(performance.now() - scanStart);
+                const backendMs = scanData.elapsed_seconds ? `${scanData.elapsed_seconds}s` : '';
+                const port = usedAPI.includes('8001') ? '⚡8001' : (usedAPI === '' ? 'Cloud' : '8000');
+                setStatus('done', `✓ ${scanData.count} symbol${scanData.count > 1 ? 's' : ''} in ${backendMs} [${port}] (${totalMs}ms total)`);
+
+            } catch (err) {
+                console.error('Scan error:', err);
+                setStatus('error', err.message || 'Scan failed — check if backend is running');
+            } finally {
+                setScanBtnState(false);
+            }
+        }
+
+        // ─── Auto Scan ───
+        async function doAutoScan() {
+            if (symbolInput.value.trim().length > 0) {
+                await startScan(); // Awaits the promise so it exports ONLY after completing scan
+                if (scanResults && scanResults.length > 0) {
+                    exportTableCSV();
+                }
+            }
+        }
+
+        function toggleAutoScan() {
+            const cb = document.getElementById('autoScanCb');
+            const txt = document.getElementById('autoScanText');
+            
+            if (cb.checked) {
+                autoScanTimeRemaining = 30 * 60; // 30 minutes
+                updateAutoScanText();
+                
+                autoScanInterval = setInterval(() => {
+                    if (isScanning) return; // Pause countdown while scanning
+                    
+                    autoScanTimeRemaining--;
+                    if (autoScanTimeRemaining <= 0) {
+                        autoScanTimeRemaining = 30 * 60;
+                        updateAutoScanText();
+                        doAutoScan();
+                    } else {
+                        updateAutoScanText();
+                    }
+                }, 1000); // Check every 1 second
+                setStatus('idle', 'Auto Scan+Export Enabled (every 30m)');
+            } else {
+                if (autoScanInterval) clearInterval(autoScanInterval);
+                autoScanInterval = null;
+                txt.innerHTML = 'Auto 30m CSV';
+                setStatus('idle', 'Auto Scan Disabled');
+            }
+        }
+
+        function updateAutoScanText() {
+            const txt = document.getElementById('autoScanText');
+            const m = Math.floor(autoScanTimeRemaining / 60);
+            const s = autoScanTimeRemaining % 60;
+            txt.innerHTML = `Auto CSV (${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')})`;
+        }
+
+        // ─── Formatting ───
+        function fmt(num) {
+            if (num === undefined || num === null || num === 0) return '--';
+            if (typeof num !== 'number') num = parseFloat(num);
+            if (isNaN(num)) return '--';
+            return num.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+        }
+
+        function fmtVol(vol) {
+            if (!vol) return '--';
+            if (vol >= 10000000) return (vol / 10000000).toFixed(2) + ' Cr';
+            if (vol >= 100000) return (vol / 100000).toFixed(2) + ' L';
+            if (vol >= 1000) return (vol / 1000).toFixed(1) + ' K';
+            return vol.toLocaleString('en-IN');
+        }
+
+        function fmtExpiry(expiry) {
+            if (!expiry) return '';
+            const m = expiry.match(/^(\d{1,2})([A-Z]{3})(\d{4})$/i);
+            if (m) return `${m[1].padStart(2,'0')}-${m[2].charAt(0).toUpperCase()+m[2].toLowerCase().slice(1)}`;
+            return expiry;
+        }
+
+        // ─── Render Table ───
+        function renderTable(data) {
+            tableBody.innerHTML = '';
+
+            data.forEach(item => {
+                const tr = document.createElement('tr');
+
+                if (!item.success) {
+                    tr.className = 'error-row';
+                    tr.innerHTML = `
+                        <td class="sym-cell">${item.symbol}</td>
+                        <td colspan="14" style="text-align:left; color:#f87171">
+                            <i class="ph ph-warning"></i> ${item.error || 'Error'}
+                        </td>`;
+                } else {
+                    const pos = (item.netChange || 0) >= 0;
+                    const chgClass = pos ? 'positive' : 'negative';
+                    const chgColor = pos ? 'val-green' : 'val-red';
+
+                    // Calculate Premium/Discount = Synthetic Future - LTP
+                    // Synthetic Future = ATM + CE - PE
+                    const pd = calcPD(item);
+                    const pdVal = pd !== null ? pd : null;
+                    const pdPos = pdVal !== null && pdVal >= 0;
+                    const pdClass = pdVal !== null ? (pdPos ? 'val-premium' : 'val-discount') : 'val-dim';
+                    const pdText = pdVal !== null ? `${pdPos ? '+' : ''}${pdVal.toFixed(2)}` : '--';
+                    item.pd = pdVal;  // Store for sorting
+
+                    tr.innerHTML = `
+                        <td>
+                            <div class="sym-cell">${item.symbol}</div>
+                            <div class="sym-expiry">${item.expiry ? fmtExpiry(item.expiry) : ''}</div>
+                        </td>
+                        <td style="color:#fff; font-weight:700">₹${fmt(item.ltp)}</td>
+                        <td>
+                            <span class="change-badge ${chgClass}">
+                                ${pos ? '+' : ''}${fmt(item.netChange)}
+                            </span>
+                        </td>
+                        <td class="${chgColor}" style="font-weight:700">${pos ? '+' : ''}${item.percentChange || 0}%</td>
+                        <td class="val-purple" style="font-weight:700">${item.ceIV ? item.ceIV + '%' : '--'}</td>
+                        <td class="val-purple" style="font-weight:700">${item.peIV ? item.peIV + '%' : '--'}</td>
+                        <td class="val-blue">${fmtVol(item.volume)}</td>
+                        <td class="val-yellow">${item.atmStrike ? fmt(item.atmStrike) : '--'}</td>
+                        <td class="val-green">₹${item.cePremium ? fmt(item.cePremium) : '--'}</td>
+                        <td class="val-red">₹${item.pePremium ? fmt(item.pePremium) : '--'}</td>
+                        <td class="${pdClass}">${pdText}</td>
+                        <td class="val-dim">${fmt(item.open)}</td>
+                        <td class="val-green">${fmt(item.high)}</td>
+                        <td class="val-red">${fmt(item.low)}</td>
+                        <td class="val-dim">${fmt(item.close)}</td>
+                    `;
+
+                    // Click to open detail panel
+                    tr.onclick = () => openDetailPanel(item.symbol);
+                }
+
+                if (item.symbol === detailSymbol) tr.classList.add('active-row');
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // ─── Sort ───
+        function sortBy(col) {
+            if (sortCol === col) {
+                sortAsc = !sortAsc;
+            } else {
+                sortCol = col;
+                sortAsc = true;
+            }
+
+            // Update header UI
+            document.querySelectorAll('.scan-table thead th').forEach(th => {
+                th.classList.remove('sorted');
+                th.querySelector('.sort-arrow').textContent = '▲';
+            });
+            const activeTh = document.querySelector(`th[data-col="${col}"]`);
+            if (activeTh) {
+                activeTh.classList.add('sorted');
+                activeTh.querySelector('.sort-arrow').textContent = sortAsc ? '▲' : '▼';
+            }
+
+            // Sort data
+            const sorted = [...getFilteredData()].sort((a, b) => {
+                let va = a[col], vb = b[col];
+
+                // Errors go to bottom
+                if (!a.success) return 1;
+                if (!b.success) return -1;
+
+                // Handle nulls
+                if (va == null) va = col === 'symbol' ? '' : -Infinity;
+                if (vb == null) vb = col === 'symbol' ? '' : -Infinity;
+
+                if (col === 'symbol') {
+                    return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+                }
+
+                va = parseFloat(va) || 0;
+                vb = parseFloat(vb) || 0;
+                return sortAsc ? va - vb : vb - va;
+            });
+
+            renderTable(sorted);
+        }
+
+        // ─── Filter ───
+        function getFilteredData() {
+            const q = filterInput.value.trim().toUpperCase();
+            if (!q) return scanResults;
+            return scanResults.filter(item => item.symbol && item.symbol.includes(q));
+        }
+
+        function applyFilter() {
+            const filtered = getFilteredData();
+
+            // Re-apply current sort if active
+            if (sortCol) {
+                const sorted = [...filtered].sort((a, b) => {
+                    let va = a[sortCol], vb = b[sortCol];
+                    if (!a.success) return 1;
+                    if (!b.success) return -1;
+                    if (va == null) va = sortCol === 'symbol' ? '' : -Infinity;
+                    if (vb == null) vb = sortCol === 'symbol' ? '' : -Infinity;
+                    if (sortCol === 'symbol') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+                    va = parseFloat(va) || 0;
+                    vb = parseFloat(vb) || 0;
+                    return sortAsc ? va - vb : vb - va;
+                });
+                renderTable(sorted);
+            } else {
+                renderTable(filtered);
+            }
+        }
+
+        // ─── Search History (localStorage) ───
+        const HISTORY_KEY = 'scanner_search_history';
+        const MAX_HISTORY = 15;
+
+        function getHistory() {
+            try {
+                const raw = localStorage.getItem(HISTORY_KEY);
+                return raw ? JSON.parse(raw) : [];
+            } catch {
+                return [];
+            }
+        }
+
+        function saveToHistory(symbols) {
+            const history = getHistory();
+            const key = symbols.sort().join(',');
+
+            // Remove duplicate if exists
+            const filtered = history.filter(h => h.key !== key);
+
+            // Add new entry at the top
+            filtered.unshift({
+                key: key,
+                symbols: symbols,
+                time: Date.now()
+            });
+
+            // Keep only last MAX_HISTORY entries
+            const trimmed = filtered.slice(0, MAX_HISTORY);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+            renderHistory();
+        }
+
+        function removeHistoryItem(index, event) {
+            event.stopPropagation();
+            const history = getHistory();
+            history.splice(index, 1);
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            renderHistory();
+        }
+
+        function clearHistory() {
+            localStorage.removeItem(HISTORY_KEY);
+            renderHistory();
+        }
+
+        function loadFromHistory(symbols) {
+            symbolInput.value = symbols.join(', ');
+            startScan();
+        }
+
+        function timeAgo(ts) {
+            const diff = Date.now() - ts;
+            const mins = Math.floor(diff / 60000);
+            if (mins < 1) return 'just now';
+            if (mins < 60) return `${mins}m ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h ago`;
+            const days = Math.floor(hrs / 24);
+            return `${days}d ago`;
+        }
+
+        function renderHistory() {
+            const section = document.getElementById('historySection');
+            const container = document.getElementById('historyTags');
+            const history = getHistory();
+
+            if (history.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = '';
+            container.innerHTML = '';
+
+            history.forEach((entry, idx) => {
+                const tag = document.createElement('div');
+                tag.className = 'history-tag';
+                tag.onclick = () => loadFromHistory(entry.symbols);
+
+                const symbolsText = entry.symbols.length <= 3
+                    ? entry.symbols.join(', ')
+                    : entry.symbols.slice(0, 3).join(', ') + '…';
+
+                tag.innerHTML = `
+                    <span class="tag-icon"><i class="ph ph-magnifying-glass"></i></span>
+                    <span class="tag-symbols">${symbolsText}</span>
+                    ${entry.symbols.length > 1 ? `<span class="tag-count">${entry.symbols.length}</span>` : ''}
+                    <span class="tag-time">${timeAgo(entry.time)}</span>
+                    <span class="tag-remove" onclick="removeHistoryItem(${idx}, event)" title="Remove">
+                        <i class="ph ph-x"></i>
+                    </span>
+                `;
+
+                container.appendChild(tag);
+            });
+        }
+
+        // Load history on page load
+        renderHistory();
+
+        // ─── Premium/Discount Calculation ───
+        function calcPD(item) {
+            if (!item || !item.atmStrike || !item.ltp) return null;
+            const ce = item.cePremium || 0;
+            const pe = item.pePremium || 0;
+            if (ce === 0 && pe === 0) return null;
+            // Synthetic Future = ATM + CE - PE
+            // P/D = Synthetic - Spot
+            const synth = item.atmStrike + ce - pe;
+            return synth - item.ltp;
+        }
+
+        // ─── Detail Panel ───
+        function openDetailPanel(symbol) {
+            detailSymbol = symbol;
+            pdHistory = [];
+
+            // Highlight the row
+            document.querySelectorAll('.scan-table tbody tr').forEach(r => r.classList.remove('active-row'));
+            const rows = document.querySelectorAll('.scan-table tbody tr');
+            rows.forEach(r => {
+                const symCell = r.querySelector('.sym-cell');
+                if (symCell && symCell.textContent.trim() === symbol) r.classList.add('active-row');
+            });
+
+            // Show panel
+            const panel = document.getElementById('detailPanel');
+            panel.classList.add('visible');
+            panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+            // Initial render from cached scan results
+            const item = scanResults.find(r => r.symbol === symbol && r.success);
+            if (item) renderDetailPanel(item);
+
+            // Start live refresh every 1 second
+            if (detailInterval) clearInterval(detailInterval);
+            detailInterval = setInterval(() => refreshDetailData(), 1000);
+        }
+
+        function closeDetailPanel() {
+            detailSymbol = null;
+            if (detailInterval) { clearInterval(detailInterval); detailInterval = null; }
+            document.getElementById('detailPanel').classList.remove('visible');
+            document.querySelectorAll('.scan-table tbody tr').forEach(r => r.classList.remove('active-row'));
+        }
+
+        async function refreshDetailData() {
+            if (!detailSymbol || !activeAPI) return;
+            try {
+                const res = await fetch(`${activeAPI}/api/scanner/scan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbols: [detailSymbol] })
+                });
+                const data = await res.json();
+                if (data.success && data.results && data.results.length > 0) {
+                    const item = data.results[0];
+                    if (item.success) {
+                        renderDetailPanel(item);
+                        // Also update the table row
+                        updateTableRow(item);
+                        document.getElementById('detailRefreshStatus').textContent = 'Live';
+                    }
+                }
+            } catch (e) {
+                document.getElementById('detailRefreshStatus').textContent = 'Retry...';
+            }
+        }
+
+        function renderDetailPanel(item) {
+            // Header
+            document.getElementById('detailSymbol').textContent = item.symbol;
+            document.getElementById('detailLtp').textContent = `₹${fmt(item.ltp)}`;
+            document.getElementById('detailLtp').style.color = '#fff';
+
+            const chg = item.netChange || 0;
+            const pct = item.percentChange || 0;
+            const pos = chg >= 0;
+            const chgEl = document.getElementById('detailChange');
+            chgEl.textContent = `${pos ? '+' : ''}${fmt(chg)} (${pos ? '+' : ''}${pct}%)`;
+            chgEl.style.background = pos ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
+            chgEl.style.color = pos ? '#10b981' : '#ef4444';
+
+            // P/D calculation
+            const pd = calcPD(item);
+            const synth = item.atmStrike ? (item.atmStrike + (item.cePremium||0) - (item.pePremium||0)) : null;
+
+            // Track P/D in history
+            if (pd !== null) {
+                const now = new Date();
+                const timeInSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+                if (timeInSec >= 33290 && timeInSec <= 55830) {
+                    pdHistory.push({ time: now.getTime(), value: pd });
+                    // Keep last 3600 data points (~1 hour at 1s interval)
+                    if (pdHistory.length > 3600) pdHistory.shift();
+                }
+            }
+
+            // Grid items
+            const grid = document.getElementById('detailGrid');
+            const pdClass = pd !== null ? (pd >= 0 ? 'premium' : 'discount') : '';
+            const pdText = pd !== null ? `${pd >= 0 ? '+' : ''}${pd.toFixed(2)}` : '--';
+            const synthText = synth !== null ? `₹${fmt(synth)}` : '--';
+
+            grid.innerHTML = `
+                <div class="detail-item" style="grid-column: span 2; border-color: ${pd !== null ? (pd >= 0 ? '#10b981' : '#ef4444') : '#2d2640'};">
+                    <div class="detail-item-label">Premium / Discount</div>
+                    <div class="detail-item-value ${pdClass}" style="font-size:1.4rem;">${pdText}</div>
+                    <div style="font-size:0.7rem; color:#6b6588; margin-top:4px;">Synthetic Future: ${synthText}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">CE IV</div>
+                    <div class="detail-item-value" style="color:#a78bfa;">${item.ceIV ? item.ceIV + '%' : '--'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">PE IV</div>
+                    <div class="detail-item-value" style="color:#c084fc;">${item.peIV ? item.peIV + '%' : '--'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">Volume</div>
+                    <div class="detail-item-value" style="color:#60a5fa;">${fmtVol(item.volume)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">ATM Strike</div>
+                    <div class="detail-item-value" style="color:#fbbf24;">${item.atmStrike ? fmt(item.atmStrike) : '--'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">Expiry</div>
+                    <div class="detail-item-value" style="color:#c9c3d8;">${item.expiry ? fmtExpiry(item.expiry) : '--'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">CE Premium</div>
+                    <div class="detail-item-value" style="color:#10b981;">₹${item.cePremium ? fmt(item.cePremium) : '--'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">PE Premium</div>
+                    <div class="detail-item-value" style="color:#ef4444;">₹${item.pePremium ? fmt(item.pePremium) : '--'}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">Open</div>
+                    <div class="detail-item-value">${fmt(item.open)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">High</div>
+                    <div class="detail-item-value" style="color:#10b981;">${fmt(item.high)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">Low</div>
+                    <div class="detail-item-value" style="color:#ef4444;">${fmt(item.low)}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-item-label">Close (Prev)</div>
+                    <div class="detail-item-value">${fmt(item.close)}</div>
+                </div>
+            `;
+
+            // Draw P/D chart
+            drawPDChart();
+        }
+
+        function updateTableRow(item) {
+            // Find and update the matching row in scanResults
+            const idx = scanResults.findIndex(r => r.symbol === item.symbol);
+            if (idx >= 0) {
+                scanResults[idx] = { ...scanResults[idx], ...item };
+            }
+        }
+
+        function drawPDChart() {
+            const canvas = document.getElementById('pdChart');
+            const ctx = canvas.getContext('2d');
+            const dpr = window.devicePixelRatio || 1;
+
+            // Set canvas size
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            const W = rect.width;
+            const H = rect.height;
+
+            // Clear
+            ctx.clearRect(0, 0, W, H);
+
+            if (pdHistory.length < 2) {
+                ctx.fillStyle = '#5a5478';
+                ctx.font = '12px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Collecting data...', W / 2, H / 2);
+                return;
+            }
+
+            const values = pdHistory.map(p => p.value);
+            const minV = Math.min(...values);
+            const maxV = Math.max(...values);
+            const range = maxV - minV || 1;
+            const pad = { top: 20, bottom: 40, left: 55, right: 15 };
+            const chartW = W - pad.left - pad.right;
+            const chartH = H - pad.top - pad.bottom;
+
+            // ─── Y-Axis Labels (Price Values) ───
+            const ySteps = 5;
+            ctx.fillStyle = '#6b6588';
+            ctx.font = '10px Inter, sans-serif';
+            ctx.textAlign = 'right';
+            for (let i = 0; i <= ySteps; i++) {
+                const val = minV + (range * i) / ySteps;
+                const y = pad.top + chartH * (1 - i / ySteps);
+                ctx.fillText((val >= 0 ? '+' : '') + val.toFixed(2), pad.left - 8, y + 3);
+                // Grid line
+                ctx.strokeStyle = 'rgba(139, 133, 161, 0.1)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(pad.left, y);
+                ctx.lineTo(W - pad.right, y);
+                ctx.stroke();
+            }
+
+            // ─── X-Axis Labels (Time) ───
+            const timeLabels = Math.min(6, pdHistory.length);
+            ctx.fillStyle = '#6b6588';
+            ctx.font = '9px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            for (let i = 0; i < timeLabels; i++) {
+                const idx = Math.round(i * (pdHistory.length - 1) / (timeLabels - 1));
+                const x = pad.left + (idx / (pdHistory.length - 1)) * chartW;
+                const t = new Date(pdHistory[idx].time);
+                const timeLabel = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                ctx.fillText(timeLabel, x, H - pad.bottom + 16);
+                // Tick mark
+                ctx.strokeStyle = 'rgba(139, 133, 161, 0.2)';
+                ctx.beginPath();
+                ctx.moveTo(x, pad.top + chartH);
+                ctx.lineTo(x, pad.top + chartH + 4);
+                ctx.stroke();
+            }
+
+            // Zero line
+            const zeroY = pad.top + chartH * (1 - (0 - minV) / range);
+            if (zeroY >= pad.top && zeroY <= pad.top + chartH) {
+                ctx.strokeStyle = 'rgba(139, 133, 161, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(pad.left, zeroY);
+                ctx.lineTo(W - pad.right, zeroY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = '#8b85a1';
+                ctx.font = 'bold 10px Inter, sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText('0.00', pad.left + 4, zeroY - 4);
+            }
+
+            // Draw line
+            ctx.beginPath();
+            ctx.lineWidth = 2;
+            for (let i = 0; i < values.length; i++) {
+                const x = pad.left + (i / (values.length - 1)) * chartW;
+                const y = pad.top + chartH * (1 - (values[i] - minV) / range);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            const lastVal = values[values.length - 1];
+            ctx.strokeStyle = lastVal >= 0 ? '#10b981' : '#ef4444';
+            ctx.stroke();
+
+            // Fill gradient
+            const lastX = pad.left + chartW;
+            const lastY = pad.top + chartH * (1 - (lastVal - minV) / range);
+            ctx.lineTo(lastX, pad.top + chartH);
+            ctx.lineTo(pad.left, pad.top + chartH);
+            ctx.closePath();
+            const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + chartH);
+            if (lastVal >= 0) {
+                grad.addColorStop(0, 'rgba(16, 185, 129, 0.15)');
+                grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+            } else {
+                grad.addColorStop(0, 'rgba(239, 68, 68, 0.15)');
+                grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+            }
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Current value label
+            ctx.fillStyle = lastVal >= 0 ? '#10b981' : '#ef4444';
+            ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(`${lastVal >= 0 ? '+' : ''}${lastVal.toFixed(2)}`, W - pad.right - 4, lastY - 8);
+
+            // ─── Hover tooltip (attach once) ───
+            if (!canvas._hoverAttached) {
+                canvas._hoverAttached = true;
+                canvas.addEventListener('mousemove', function(e) {
+                    if (pdHistory.length < 2) return;
+                    const r = canvas.getBoundingClientRect();
+                    const mx = e.clientX - r.left;
+                    const myPad = { top: 20, bottom: 40, left: 55, right: 15 };
+                    const cW = r.width - myPad.left - myPad.right;
+                    if (mx < myPad.left || mx > r.width - myPad.right) return;
+                    const ratio = (mx - myPad.left) / cW;
+                    const idx = Math.min(Math.round(ratio * (pdHistory.length - 1)), pdHistory.length - 1);
+                    const pt = pdHistory[idx];
+                    if (!pt) return;
+                    const t = new Date(pt.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const sign = pt.value >= 0 ? '+' : '';
+                    canvas.title = `Time: ${t}\nP/D: ${sign}${pt.value.toFixed(2)}`;
+                });
+                canvas.addEventListener('mouseleave', function() { canvas.title = ''; });
+            }
+        }
+
+        // ─── CSV Export ───
+        function exportPDChart() {
+            if (pdHistory.length === 0) {
+                alert('No P/D data to export yet. Click a stock and wait for data to accumulate.');
+                return;
+            }
+
+            // Get the current item to include Spot and Synthetic in export
+            const item = scanResults.find(r => r.symbol === detailSymbol && r.success);
+            const symbol = detailSymbol || 'unknown';
+
+            let csvContent = 'Time,Symbol,Spot(LTP),SyntheticFuture,PremiumDiscount\n';
+
+            pdHistory.forEach(point => {
+                const timeStr = new Date(point.time).toLocaleTimeString('en-IN', { hour12: false });
+                const spot = item ? item.ltp : '';
+                const synth = item && item.atmStrike ? (item.atmStrike + (item.cePremium || 0) - (item.pePremium || 0)).toFixed(2) : '';
+                csvContent += `${timeStr},${symbol},${spot},${synth},${point.value.toFixed(2)}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${symbol}_PD_${new Date().toISOString().slice(0, 10)}_${Date.now()}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // ─── Export Table Data to CSV ───
+        function exportTableCSV() {
+            if (!scanResults || scanResults.length === 0) {
+                alert('No scan data to export. Run a scan first.');
+                return;
+            }
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = now.toLocaleTimeString();
+            let csv = 'Date,Time,Symbol,LTP,Change,Change%,IV,Volume,ATM Strike,Expiry,CE Premium,PE Premium,P/D,Open,High,Low,Close\n';
+            scanResults.forEach(item => {
+                if (!item.success) return;
+                let pd = '';
+                if (item.atmStrike && item.ltp && (item.cePremium || item.pePremium)) {
+                    pd = ((item.atmStrike + (item.cePremium||0) - (item.pePremium||0)) - item.ltp).toFixed(2);
+                }
+                csv += `${dateStr},${timeStr},${item.symbol},${item.ltp||''},${item.netChange||''},${item.percentChange||''},${item.iv||''},${item.volume||''},${item.atmStrike||''},${item.expiry||''},${item.cePremium||''},${item.pePremium||''},${pd},${item.open||''},${item.high||''},${item.low||''},${item.close||''}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const hh = String(now.getHours()).padStart(2, '0');
+            const min = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            link.download = `scanner_export_${dd}-${mm}-${yyyy}_${hh}-${min}-${ss}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+
+</html>

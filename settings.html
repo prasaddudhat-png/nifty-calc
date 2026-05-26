@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auto-Calc - Settings</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        body {
+            background-color: #0f0a1c;
+            color: #ffffff;
+            font-family: 'Inter', system-ui, sans-serif;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .calc-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .dark-card {
+            background: #1a1625;
+            border: 1px solid #2d2640;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            padding: 32px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .dark-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #7c3aed, transparent);
+            opacity: 0.5;
+        }
+
+        .input-group {
+            margin-bottom: 24px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 0.85rem;
+            color: #8b85a1;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .settings-input {
+            width: 100%;
+            background: #0f0a1c;
+            border: 1px solid #2d2640;
+            color: #ffffff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s ease;
+            font-family: monospace;
+        }
+
+        .settings-input:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2);
+        }
+
+        .save-btn {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            border: none;
+            border-radius: 10px;
+            padding: 14px 24px;
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .save-btn:hover {
+            background: linear-gradient(135deg, #6d28d9, #5b21b6);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        }
+        
+        .save-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #10b981;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 100;
+        }
+        
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        .toast.error {
+            background: #ef4444;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <div style="background: #1a1625; border-bottom: 1px solid #2d2640; padding: 12px 24px; display: flex; gap: 12px; align-items: center; overflow-x: auto;">
+        <h2 style="margin: 0; font-size: 1.2rem; font-weight: bold; margin-right: 16px; color: #fff;">Auto-Calc</h2>
+        <a href="index.html" class="flex gap-2 items-center bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] text-gray-300 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+            <i class="ph ph-chart-line"></i> Dashboard
+        </a>
+        <a href="scanner.html" class="flex gap-2 items-center bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] text-gray-300 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+            <i class="ph ph-magnifying-glass"></i> Scanner
+        </a>
+        <a href="analyzer.html" class="flex gap-2 items-center bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.1)] text-gray-300 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+            <i class="ph ph-chart-polar"></i> Analyzer
+        </a>
+        <a href="settings.html" class="flex gap-2 items-center bg-[rgba(52,211,153,0.15)] border border-emerald-500 text-emerald-400 px-3 py-1.5 rounded-lg transition no-underline font-bold text-sm">
+            <i class="ph ph-gear"></i> Settings
+        </a>
+    </div>
+
+    <div class="calc-container mt-8">
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tight mb-2">API Configuration</h1>
+            <p class="text-[#8b85a1]">Set your Angel One API credentials here. This allows the dashboard to easily run on any system without modifying the code.</p>
+        </div>
+
+        <div class="dark-card">
+            <form id="settingsForm" onsubmit="saveSettings(event)">
+                <div class="input-group">
+                    <label class="input-label">API Key (SmartAPI)</label>
+                    <input type="text" id="apiKey" class="settings-input" placeholder="e.g. sQ28fQ2S" required autocomplete="off">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Client Code</label>
+                    <input type="text" id="clientCode" class="settings-input" placeholder="e.g. AACF564128" required autocomplete="off">
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">PIN</label>
+                    <input type="password" id="pin" class="settings-input" placeholder="Your 4-digit PIN" required autocomplete="off">
+                </div>
+                
+                <div class="input-group mb-8">
+                    <label class="input-label">TOTP Secret (Auth Token)</label>
+                    <input type="password" id="totpSecret" class="settings-input" placeholder="Your authenticator secret key" required autocomplete="off">
+                    <p class="text-xs text-gray-500 mt-2">This is the long string of letters and numbers used to generate your TOTP.</p>
+                </div>
+                
+                <button type="submit" id="saveBtn" class="save-btn">
+                    <i class="ph ph-floppy-disk text-xl"></i> Save & Reconnect
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="toast" class="toast">
+        <i class="ph ph-check-circle text-xl" id="toastIcon"></i>
+        <span id="toastMsg">Settings saved successfully!</span>
+    </div>
+
+    <script>
+        const host = window.location.hostname || 'localhost';
+        const protocol = window.location.protocol;
+        const API_URL = protocol === 'file:' ? `http://${host}:8000` : ``;
+        const SCANNER_API_URL = protocol === 'file:' ? `http://${host}:8001` : ``;
+
+        function showToast(msg, isError = false) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            const icon = document.getElementById('toastIcon');
+            
+            if (isError) {
+                toast.classList.add('error');
+                icon.className = 'ph ph-warning-circle text-xl';
+            } else {
+                toast.classList.remove('error');
+                icon.className = 'ph ph-check-circle text-xl';
+            }
+            
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch(`${API_URL}/api/config`);
+                if (!res.ok) throw new Error("Failed to load");
+                const data = await res.json();
+                
+                document.getElementById('apiKey').value = data.API_KEY || '';
+                document.getElementById('clientCode').value = data.CLIENT_CODE || '';
+                document.getElementById('pin').value = data.PIN || '';
+                document.getElementById('totpSecret').value = data.TOTP_SECRET || '';
+            } catch(e) {
+                console.error(e);
+                showToast("Could not load current settings. Is backend running?", true);
+            }
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin text-xl"></i> Saving...';
+
+            const payload = {
+                API_KEY: document.getElementById('apiKey').value.trim(),
+                CLIENT_CODE: document.getElementById('clientCode').value.trim(),
+                PIN: document.getElementById('pin').value.trim(),
+                TOTP_SECRET: document.getElementById('totpSecret').value.trim()
+            };
+
+            try {
+                // 1. Save to Main Backend
+                const res = await fetch(`${API_URL}/api/config`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    showToast("Credentials saved successfully!");
+                    
+                    // 2. Tell Scanner Backend to Reload Config
+                    try {
+                        await fetch(`${SCANNER_API_URL}/api/config/reload`);
+                    } catch(se) {
+                        console.warn("Scanner backend not running or couldn't reload", se);
+                        // It's okay if scanner isn't running
+                    }
+                } else {
+                    showToast("Failed to save credentials.", true);
+                }
+            } catch(err) {
+                console.error(err);
+                showToast("Error connecting to backend.", true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-floppy-disk text-xl"></i> Save & Reconnect';
+            }
+        }
+
+        // Initial load
+        loadSettings();
+    </script>
+</body>
+
+</html>
