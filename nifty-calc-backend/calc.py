@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import PlainTextResponse
 import requests
 import pyotp
 import time
@@ -601,6 +602,47 @@ def get_synthetic_future(strike: float = None, expiry: str = None):
         "put_price": put_price,
         "synthetic_future": round(synthetic_future, 2)
     }
+
+@app.get("/api/excel/pd")
+def get_excel_pd(strike: float = None, expiry: str = None):
+    """Retrieve raw Premium/Discount (Synthetic Future - Spot) as plain text for Excel."""
+    res = get_synthetic_future(strike, expiry)
+    if res.get("success"):
+        pd_val = res["synthetic_future"] - res["underlying"]
+        return PlainTextResponse(f"{pd_val:.2f}")
+    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
+
+@app.get("/api/excel/spot")
+def get_excel_spot(strike: float = None, expiry: str = None):
+    """Retrieve raw Spot price as plain text for Excel."""
+    res = get_synthetic_future(strike, expiry)
+    if res.get("success"):
+        return PlainTextResponse(f"{res['underlying']:.2f}")
+    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
+
+@app.get("/api/excel/synthetic")
+def get_excel_synthetic(strike: float = None, expiry: str = None):
+    """Retrieve raw Synthetic Future as plain text for Excel."""
+    res = get_synthetic_future(strike, expiry)
+    if res.get("success"):
+        return PlainTextResponse(f"{res['synthetic_future']:.2f}")
+    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
+
+@app.get("/api/excel/call")
+def get_excel_call(strike: float = None, expiry: str = None):
+    """Retrieve raw ATM Call price as plain text for Excel."""
+    res = get_synthetic_future(strike, expiry)
+    if res.get("success"):
+        return PlainTextResponse(f"{res['call_price']:.2f}")
+    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
+
+@app.get("/api/excel/put")
+def get_excel_put(strike: float = None, expiry: str = None):
+    """Retrieve raw ATM Put price as plain text for Excel."""
+    res = get_synthetic_future(strike, expiry)
+    if res.get("success"):
+        return PlainTextResponse(f"{res['put_price']:.2f}")
+    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
 
 @app.get("/api/market/movers")
 def get_market_movers():
