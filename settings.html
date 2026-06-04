@@ -178,10 +178,16 @@
                     <input type="password" id="pin" class="settings-input" placeholder="Your 4-digit PIN" required autocomplete="off">
                 </div>
                 
-                <div class="input-group mb-8">
+                <div class="input-group">
                     <label class="input-label">TOTP Secret (Auth Token)</label>
                     <input type="password" id="totpSecret" class="settings-input" placeholder="Your authenticator secret key" required autocomplete="off">
                     <p class="text-xs text-gray-500 mt-2">This is the long string of letters and numbers used to generate your TOTP.</p>
+                </div>
+                
+                <div class="input-group mb-8">
+                    <label class="input-label">Delete Password</label>
+                    <input type="password" id="deletePassword" class="settings-input" placeholder="Password to authorize trade deletion (default: 7890)" required autocomplete="off">
+                    <p class="text-xs text-gray-500 mt-2">Required password prompt when deleting trade records from the history database.</p>
                 </div>
                 
                 <button type="submit" id="saveBtn" class="save-btn">
@@ -233,6 +239,7 @@
                 document.getElementById('clientCode').value = data.CLIENT_CODE || '';
                 document.getElementById('pin').value = data.PIN || '';
                 document.getElementById('totpSecret').value = data.TOTP_SECRET || '';
+                document.getElementById('deletePassword').value = data.DELETE_PASSWORD || '7890';
             } catch(e) {
                 console.error(e);
                 showToast("Could not load current settings. Is backend running?", true);
@@ -249,7 +256,8 @@
                 API_KEY: document.getElementById('apiKey').value.trim(),
                 CLIENT_CODE: document.getElementById('clientCode').value.trim(),
                 PIN: document.getElementById('pin').value.trim(),
-                TOTP_SECRET: document.getElementById('totpSecret').value.trim()
+                TOTP_SECRET: document.getElementById('totpSecret').value.trim(),
+                DELETE_PASSWORD: document.getElementById('deletePassword').value.trim()
             };
 
             try {

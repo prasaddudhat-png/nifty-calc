@@ -30,18 +30,20 @@ API_KEY = ""
 CLIENT_CODE = ""
 PIN = ""
 TOTP_SECRET = ""
+DELETE_PASSWORD = "7890"
 
 # Check if running in a container with a persistent /data mount (e.g. Railway)
 DATA_DIR = "/data" if os.path.exists("/data") else os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(DATA_DIR, "api_config.json")
 
 def load_credentials():
-    global API_KEY, CLIENT_CODE, PIN, TOTP_SECRET
+    global API_KEY, CLIENT_CODE, PIN, TOTP_SECRET, DELETE_PASSWORD
     default_config = {
         "API_KEY": "sQ28fQ2S",
         "CLIENT_CODE": "AACF564128",
         "PIN": "2008",
-        "TOTP_SECRET": "627O7ZONJSMTW6PKVFZT7M3BZE"
+        "TOTP_SECRET": "627O7ZONJSMTW6PKVFZT7M3BZE",
+        "DELETE_PASSWORD": "7890"
     }
     
     if os.path.exists(CONFIG_FILE):
@@ -52,6 +54,7 @@ def load_credentials():
             CLIENT_CODE = config.get("CLIENT_CODE", default_config["CLIENT_CODE"])
             PIN = str(config.get("PIN", default_config["PIN"]))
             TOTP_SECRET = config.get("TOTP_SECRET", default_config["TOTP_SECRET"])
+            DELETE_PASSWORD = str(config.get("DELETE_PASSWORD", default_config["DELETE_PASSWORD"]))
             return config
         except Exception as e:
             print(f"Error reading {CONFIG_FILE}: {e}")
@@ -70,7 +73,7 @@ def load_credentials():
     return default_config
 
 def save_credentials(config):
-    global API_KEY, CLIENT_CODE, PIN, TOTP_SECRET
+    global API_KEY, CLIENT_CODE, PIN, TOTP_SECRET, DELETE_PASSWORD
     try:
         with open(CONFIG_FILE, 'w') as f:
             json.dump(config, f, indent=4)
@@ -78,6 +81,7 @@ def save_credentials(config):
         CLIENT_CODE = config.get("CLIENT_CODE", CLIENT_CODE)
         PIN = str(config.get("PIN", PIN))
         TOTP_SECRET = config.get("TOTP_SECRET", TOTP_SECRET)
+        DELETE_PASSWORD = str(config.get("DELETE_PASSWORD", DELETE_PASSWORD))
         return True
     except Exception as e:
         print(f"Error saving {CONFIG_FILE}: {e}")
@@ -1525,6 +1529,7 @@ class APIConfig(BaseModel):
     CLIENT_CODE: str
     PIN: str
     TOTP_SECRET: str
+    DELETE_PASSWORD: str = "7890"
 
 @app.get("/api/config")
 def get_config():
@@ -1806,8 +1811,10 @@ def get_trades_history(user: str = "User 1"):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/trades/{trade_id}")
-def delete_trade(trade_id: int, user: str = "User 1"):
+def delete_trade(trade_id: int, password: str = None, user: str = "User 1"):
     """Delete a specific trade from history."""
+    if password != DELETE_PASSWORD:
+        raise HTTPException(status_code=403, detail="Unauthorized: Incorrect delete password.")
     try:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
