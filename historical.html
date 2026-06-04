@@ -341,9 +341,11 @@
             emptyState.style.display = 'none';
 
             try {
-                // Determine API base (fallback 8000 or scanner 8001 if backend merged)
-                // We assume backend is on port 8000 for standard routes
-                const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+                // Determine API base
+                const host = window.location.hostname || 'localhost';
+                const port = window.location.port;
+                const isDev = window.location.protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+                const API_BASE = isDev ? `http://${host}:8000` : '';
                 
                 const res = await fetch(`${API_BASE}/api/market/historical?symbol=${encodeURIComponent(symbol)}`);
                 const data = await res.json();

@@ -422,7 +422,12 @@
                 </div>
                 <!-- Trade Details -->
                 <div class="px-2 mt-4 mb-2">
-                    <span class="data-label opacity-70">Today's Trades</span>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="data-label opacity-70 m-0">Today's Trades</span>
+                        <button onclick="openAddTradeModal(0)" class="bg-[#231b2e] hover:bg-[#2d2640] border border-[#2d2640] hover:border-indigo-500/40 text-indigo-400 text-[10px] font-bold px-2 py-1 rounded transition flex items-center gap-1" title="Manually record a trade for this box">
+                            <i class="ph ph-plus-circle"></i> Add Trade
+                        </button>
+                    </div>
                     <div id="tradeDetailsContainer0" class="mt-2 text-sm text-gray-300">
                         <div class="text-gray-500 italic py-2 text-center border border-[#2d2640] rounded bg-[#1a1625]">No trades recorded for today</div>
                     </div>
@@ -578,7 +583,12 @@
                 </div>
                 <!-- Trade Details -->
                 <div class="px-2 mt-4 mb-2">
-                    <span class="data-label opacity-70">Today's Trades</span>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="data-label opacity-70 m-0">Today's Trades</span>
+                        <button onclick="openAddTradeModal(1)" class="bg-[#231b2e] hover:bg-[#2d2640] border border-[#2d2640] hover:border-indigo-500/40 text-indigo-400 text-[10px] font-bold px-2 py-1 rounded transition flex items-center gap-1" title="Manually record a trade for this box">
+                            <i class="ph ph-plus-circle"></i> Add Trade
+                        </button>
+                    </div>
                     <div id="tradeDetailsContainer1" class="mt-2 text-sm text-gray-300">
                         <div class="text-gray-500 italic py-2 text-center border border-[#2d2640] rounded bg-[#1a1625]">No trades recorded for today</div>
                     </div>
@@ -734,7 +744,12 @@
                 </div>
                 <!-- Trade Details -->
                 <div class="px-2 mt-4 mb-2">
-                    <span class="data-label opacity-70">Today's Trades</span>
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="data-label opacity-70 m-0">Today's Trades</span>
+                        <button onclick="openAddTradeModal(2)" class="bg-[#231b2e] hover:bg-[#2d2640] border border-[#2d2640] hover:border-indigo-500/40 text-indigo-400 text-[10px] font-bold px-2 py-1 rounded transition flex items-center gap-1" title="Manually record a trade for this box">
+                            <i class="ph ph-plus-circle"></i> Add Trade
+                        </button>
+                    </div>
                     <div id="tradeDetailsContainer2" class="mt-2 text-sm text-gray-300">
                         <div class="text-gray-500 italic py-2 text-center border border-[#2d2640] rounded bg-[#1a1625]">No trades recorded for today</div>
                     </div>
@@ -762,6 +777,9 @@
                     <h3 class="text-lg font-bold text-white uppercase tracking-wider">Historical Trade Database</h3>
                 </div>
                 <div class="flex items-center gap-3">
+                    <button onclick="openAddTradeModal(null)" class="text-xs bg-indigo-700 hover:bg-indigo-600 border border-indigo-600 text-white font-bold py-1.5 px-3 rounded transition flex items-center gap-1" title="Manually record an arbitrary trade record">
+                        <i class="ph ph-plus-circle"></i> Add Trade
+                    </button>
                     <button onclick="exportAllDatabaseTrades()" class="text-xs bg-emerald-700 hover:bg-emerald-600 border border-emerald-600 text-white font-bold py-1.5 px-3 rounded transition flex items-center gap-1">
                         <i class="ph ph-file-csv"></i> Export CSV
                     </button>
@@ -818,6 +836,163 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Trade Modal -->
+    <div id="addEditTradeModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-[#1a1625] border border-[#2d2640] rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl transition-all scale-95 duration-300 opacity-0 transform" id="addEditTradeModalContent">
+            <!-- Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-[#2d2640] bg-[#231b2e]">
+                <div class="flex items-center gap-2 text-indigo-400">
+                    <i class="ph ph-plus-circle text-xl" id="addEditTradeModalIcon"></i>
+                    <h3 class="text-lg font-bold text-white uppercase tracking-wider" id="addEditTradeModalTitle">Add/Edit Trade</h3>
+                </div>
+                <button onclick="closeAddEditTradeModal()" class="text-gray-400 hover:text-white transition bg-[#2d2640] hover:bg-[#3d3560] p-1.5 rounded-lg">
+                    <i class="ph ph-x text-lg"></i>
+                </button>
+            </div>
+            <!-- Form Body -->
+            <form id="addEditTradeForm" onsubmit="event.preventDefault(); saveAddEditTrade();" class="p-6 overflow-y-auto flex-1 bg-[#151121] text-sm text-gray-200">
+                <input type="hidden" id="editTradeId">
+                <input type="hidden" id="editTradeBoxIdx">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <!-- Symbol -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Symbol</label>
+                        <input type="text" id="editTradeSymbol" required class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. NIFTY">
+                    </div>
+                    <!-- Direction -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Direction</label>
+                        <select id="editTradeDirection" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition">
+                            <option value="LONG">LONG (Long Synth / Short Spot)</option>
+                            <option value="SHORT">SHORT (Short Synth / Long Spot)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <!-- Status -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Status</label>
+                        <select id="editTradeStatus" onchange="updateAddEditModalStatus()" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition">
+                            <option value="OPEN">OPEN</option>
+                            <option value="CLOSED">CLOSED</option>
+                            <option value="EXPIRED">EXPIRED</option>
+                        </select>
+                    </div>
+                    <!-- Strike -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Strike</label>
+                        <input type="number" id="editTradeStrike" required step="any" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 22000">
+                    </div>
+                    <!-- Expiry -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Expiry</label>
+                        <input type="text" id="editTradeExpiry" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 15MAY2026">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <!-- Lots -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Lots</label>
+                        <input type="number" id="editTradeLots" step="any" oninput="updateAddEditQty()" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 1">
+                    </div>
+                    <!-- Lot Size multiplier -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Lot Size</label>
+                        <input type="number" id="editTradeLotSize" step="1" oninput="updateAddEditQty()" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 50" value="50">
+                    </div>
+                    <!-- Qty (Total) -->
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Total Qty</label>
+                        <input type="number" id="editTradeQty" required step="any" oninput="calculateFormPnL()" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 50">
+                    </div>
+                </div>
+
+                <!-- Dates and Times -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Entry Date (DD/MM/YYYY)</label>
+                        <input type="text" id="editTradeEntryDate" required class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 04/06/2026">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Entry Time</label>
+                        <input type="text" id="editTradeEntryTime" required class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 09:15:00">
+                    </div>
+                </div>
+
+                <!-- Entry Prices -->
+                <div class="bg-[#0f0a1c] border border-[#2d2640] rounded-xl p-4 mb-4">
+                    <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider block mb-3">Entry Prices</span>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Underlying Spot</label>
+                            <input type="number" id="editTradeEntrySpot" required step="any" oninput="calculateFormPnL()" class="w-full bg-[#1a1625] border border-[#2d2640] rounded px-3 py-1.5 text-white outline-none focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Call Price (CE)</label>
+                            <input type="number" id="editTradeEntryCall" required step="any" oninput="calculateFormPnL()" class="w-full bg-[#1a1625] border border-[#2d2640] rounded px-3 py-1.5 text-white outline-none focus:border-indigo-500 transition">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 mb-1">Put Price (PE)</label>
+                            <input type="number" id="editTradeEntryPut" required step="any" oninput="calculateFormPnL()" class="w-full bg-[#1a1625] border border-[#2d2640] rounded px-3 py-1.5 text-white outline-none focus:border-indigo-500 transition">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exit Fields (Show/Hide dynamically) -->
+                <div id="editTradeExitFields" class="hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Exit Date (DD/MM/YYYY)</label>
+                            <input type="text" id="editTradeExitDate" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 04/06/2026">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Exit Time</label>
+                            <input type="text" id="editTradeExitTime" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition" placeholder="e.g. 15:30:00">
+                        </div>
+                    </div>
+
+                    <div class="bg-[#0f0a1c] border border-[#2d2640] rounded-xl p-4 mb-4">
+                        <span class="text-xs font-bold text-amber-500 uppercase tracking-wider block mb-3">Exit Prices</span>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-400 mb-1">Exit Spot</label>
+                                <input type="number" id="editTradeExitSpot" step="any" oninput="calculateFormPnL()" class="w-full bg-[#1a1625] border border-[#2d2640] rounded px-3 py-1.5 text-white outline-none focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-400 mb-1">Exit Call (CE)</label>
+                                <input type="number" id="editTradeExitCall" step="any" oninput="calculateFormPnL()" class="w-full bg-[#1a1625] border border-[#2d2640] rounded px-3 py-1.5 text-white outline-none focus:border-indigo-500 transition">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-400 mb-1">Exit Put (PE)</label>
+                                <input type="number" id="editTradeExitPut" step="any" oninput="calculateFormPnL()" class="w-full bg-[#1a1625] border border-[#2d2640] rounded px-3 py-1.5 text-white outline-none focus:border-indigo-500 transition">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Final P/L -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Final P/L (₹)</label>
+                        <input type="number" id="editTradeFinalPnL" step="any" class="w-full bg-[#0f0a1c] border border-[#2d2640] rounded px-3 py-2 text-white outline-none focus:border-indigo-500 transition font-mono font-bold" placeholder="0.00">
+                    </div>
+                    <div class="flex items-end text-xs text-gray-500 italic pb-2">
+                        P/L is calculated dynamically but can be overridden.
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex justify-end gap-3 pt-4 border-t border-[#2d2640]">
+                    <button type="button" onclick="closeAddEditTradeModal()" class="bg-[#2d2640] hover:bg-[#3d3560] text-gray-300 hover:text-white font-bold py-2 px-6 rounded-xl transition">Cancel</button>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2 px-6 rounded-xl transition">Save Trade</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1169,6 +1344,373 @@
                 }, 200);
             }
 
+            // ─── Add/Edit Trade Modal Controllers ───
+            function updateAddEditQty() {
+                const lots = parseFloat(el('editTradeLots').value) || 0;
+                const size = parseFloat(el('editTradeLotSize').value) || 50;
+                if (lots > 0) {
+                    el('editTradeQty').value = lots * size;
+                }
+                calculateFormPnL();
+            }
+
+            function openAddTradeModal(idx) {
+                const modal = el('addEditTradeModal');
+                const content = el('addEditTradeModalContent');
+                
+                el('addEditTradeForm').reset();
+                el('editTradeId').value = '';
+                el('editTradeBoxIdx').value = idx !== null ? idx : '';
+                
+                el('addEditTradeModalTitle').innerText = 'Add Manual Trade';
+                el('addEditTradeModalIcon').className = 'ph ph-plus-circle text-xl text-indigo-400';
+                
+                el('editTradeStatus').value = 'OPEN';
+                updateAddEditModalStatus();
+                
+                if (idx !== null && boxSymbol[idx]) {
+                    el('editTradeSymbol').value = boxSymbol[idx];
+                    
+                    const data = lastFetchData[idx];
+                    if (data && data.success) {
+                        el('editTradeStrike').value = data.strike;
+                        el('editTradeExpiry').value = data.expiry || '';
+                        el('editTradeLotSize').value = data.lot_size || 50;
+                        el('editTradeEntrySpot').value = data.underlying;
+                        el('editTradeEntryCall').value = data.call_price;
+                        el('editTradeEntryPut').value = data.put_price;
+                    }
+                    
+                    el('editTradeLots').value = el(`liveLots${idx}`).value || 1;
+                    el('editTradeLotSize').value = el(`liveLotMult${idx}`).value || 50;
+                } else {
+                    el('editTradeSymbol').value = '';
+                    el('editTradeStrike').value = '';
+                    el('editTradeExpiry').value = '';
+                    el('editTradeLots').value = 1;
+                    el('editTradeLotSize').value = 50;
+                    el('editTradeEntrySpot').value = 0;
+                    el('editTradeEntryCall').value = 0;
+                    el('editTradeEntryPut').value = 0;
+                }
+                
+                updateAddEditQty();
+                
+                const now = new Date();
+                el('editTradeEntryDate').value = formatDate(now);
+                el('editTradeEntryTime').value = now.toLocaleTimeString('en-US', { hour12: false });
+                
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            }
+
+            function openEditTradeModal(e, idx, tradeId) {
+                if (e) e.stopPropagation();
+                
+                const trade = tradeBook.find(t => t.id === tradeId);
+                if (!trade) {
+                    alert('Trade not found in database.');
+                    return;
+                }
+                
+                const modal = el('addEditTradeModal');
+                const content = el('addEditTradeModalContent');
+                
+                el('addEditTradeModalTitle').innerText = 'Edit Trade Record';
+                el('addEditTradeModalIcon').className = 'ph ph-pencil-simple text-xl text-amber-500';
+                
+                el('editTradeId').value = trade.id;
+                el('editTradeBoxIdx').value = idx !== null ? idx : '';
+                
+                el('editTradeSymbol').value = trade.symbol;
+                el('editTradeDirection').value = trade.direction.toUpperCase();
+                el('editTradeStatus').value = trade.status.toUpperCase();
+                el('editTradeStrike').value = trade.strike;
+                el('editTradeExpiry').value = trade.expiry || '';
+                el('editTradeLots').value = trade.lots || '';
+                el('editTradeLotSize').value = (trade.lots && trade.lots > 0) ? (trade.qty / trade.lots) : 50;
+                el('editTradeQty').value = trade.qty;
+                
+                el('editTradeEntryDate').value = trade.entryDate || '';
+                el('editTradeEntryTime').value = trade.entryTime || '';
+                el('editTradeEntrySpot').value = trade.entrySpot || 0;
+                el('editTradeEntryCall').value = trade.entryCall || 0;
+                el('editTradeEntryPut').value = trade.entryPut || 0;
+                
+                el('editTradeExitDate').value = (trade.exitDate && trade.exitDate !== '--') ? trade.exitDate : '';
+                el('editTradeExitTime').value = (trade.exitTime && trade.exitTime !== '--') ? trade.exitTime : '';
+                el('editTradeExitSpot').value = trade.exitSpot || 0;
+                el('editTradeExitCall').value = trade.exitCall || 0;
+                el('editTradeExitPut').value = trade.exitPut || 0;
+                el('editTradeFinalPnL').value = trade.finalPnL !== undefined ? trade.finalPnL : 0;
+                
+                updateAddEditModalStatus();
+                calculateFormPnL();
+                
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                setTimeout(() => {
+                    content.classList.remove('scale-95', 'opacity-0');
+                    content.classList.add('scale-100', 'opacity-100');
+                }, 10);
+            }
+
+            function closeAddEditTradeModal() {
+                const modal = el('addEditTradeModal');
+                const content = el('addEditTradeModalContent');
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                setTimeout(() => {
+                    modal.classList.remove('flex');
+                    modal.classList.add('hidden');
+                }, 200);
+            }
+
+            function updateAddEditModalStatus() {
+                const status = el('editTradeStatus').value;
+                const exitFields = el('editTradeExitFields');
+                const exitDate = el('editTradeExitDate');
+                const exitTime = el('editTradeExitTime');
+                const exitSpot = el('editTradeExitSpot');
+                const exitCall = el('editTradeExitCall');
+                const exitPut = el('editTradeExitPut');
+                
+                if (status === 'OPEN') {
+                    exitFields.classList.add('hidden');
+                    exitDate.removeAttribute('required');
+                    exitTime.removeAttribute('required');
+                    exitSpot.removeAttribute('required');
+                    exitCall.removeAttribute('required');
+                    exitPut.removeAttribute('required');
+                } else {
+                    exitFields.classList.remove('hidden');
+                    exitDate.setAttribute('required', 'required');
+                    exitTime.setAttribute('required', 'required');
+                    exitSpot.setAttribute('required', 'required');
+                    exitCall.setAttribute('required', 'required');
+                    exitPut.setAttribute('required', 'required');
+                    
+                    if (!exitDate.value) {
+                        const now = new Date();
+                        exitDate.value = formatDate(now);
+                        exitTime.value = now.toLocaleTimeString('en-US', { hour12: false });
+                    }
+                }
+                calculateFormPnL();
+            }
+
+            function calculateFormPnL() {
+                const direction = el('editTradeDirection').value.toUpperCase();
+                const qty = parseFloat(el('editTradeQty').value) || 0;
+                
+                const entrySpot = parseFloat(el('editTradeEntrySpot').value) || 0;
+                const entryCall = parseFloat(el('editTradeEntryCall').value) || 0;
+                const entryPut = parseFloat(el('editTradeEntryPut').value) || 0;
+                
+                const exitSpot = parseFloat(el('editTradeExitSpot').value) || 0;
+                const exitCall = parseFloat(el('editTradeExitCall').value) || 0;
+                const exitPut = parseFloat(el('editTradeExitPut').value) || 0;
+                
+                const status = el('editTradeStatus').value.toUpperCase();
+                
+                if (status === 'OPEN') {
+                    el('editTradeFinalPnL').value = "0.00";
+                    return;
+                }
+                
+                let spotPnL = 0, callPnL = 0, putPnL = 0;
+                if (direction === 'LONG') {
+                    spotPnL = (entrySpot - exitSpot) * qty; 
+                    callPnL = (exitCall - entryCall) * qty; 
+                    putPnL = (entryPut - exitPut) * qty;    
+                } else {
+                    spotPnL = (exitSpot - entrySpot) * qty; 
+                    callPnL = (entryCall - exitCall) * qty; 
+                    putPnL = (exitPut - entryPut) * qty;    
+                }
+                const totalPnL = spotPnL + callPnL + putPnL;
+                el('editTradeFinalPnL').value = totalPnL.toFixed(2);
+            }
+
+            function saveAddEditTrade() {
+                const tradeIdStr = el('editTradeId').value;
+                const boxIdxStr = el('editTradeBoxIdx').value;
+                const idx = boxIdxStr !== '' ? parseInt(boxIdxStr) : null;
+                
+                const symbol = el('editTradeSymbol').value.trim().toUpperCase();
+                const direction = el('editTradeDirection').value.toUpperCase();
+                const status = el('editTradeStatus').value.toUpperCase();
+                const strike = parseFloat(el('editTradeStrike').value);
+                const expiry = el('editTradeExpiry').value.trim();
+                const lots = parseFloat(el('editTradeLots').value) || 0;
+                const qty = parseFloat(el('editTradeQty').value) || 0;
+                
+                const entryDate = el('editTradeEntryDate').value.trim();
+                const entryTime = el('editTradeEntryTime').value.trim();
+                const entrySpot = parseFloat(el('editTradeEntrySpot').value) || 0;
+                const entryCall = parseFloat(el('editTradeEntryCall').value) || 0;
+                const entryPut = parseFloat(el('editTradeEntryPut').value) || 0;
+                const entryPD = entryCall - entryPut;
+                
+                if (!symbol || isNaN(strike) || qty <= 0) {
+                    alert('Please enter valid Symbol, Strike, and Qty.');
+                    return;
+                }
+                
+                let exitDate = '--';
+                let exitTime = '--';
+                let exitSpot = 0;
+                let exitCall = 0;
+                let exitPut = 0;
+                let finalPnL = 0;
+                let exitId = null;
+                
+                if (status !== 'OPEN') {
+                    exitDate = el('editTradeExitDate').value.trim();
+                    exitTime = el('editTradeExitTime').value.trim();
+                    exitSpot = parseFloat(el('editTradeExitSpot').value) || 0;
+                    exitCall = parseFloat(el('editTradeExitCall').value) || 0;
+                    exitPut = parseFloat(el('editTradeExitPut').value) || 0;
+                    finalPnL = parseFloat(el('editTradeFinalPnL').value) || 0;
+                }
+                
+                if (tradeIdStr !== '') {
+                    const tradeId = parseInt(tradeIdStr);
+                    const trade = tradeBook.find(t => t.id === tradeId);
+                    if (trade) {
+                        trade.symbol = symbol;
+                        trade.direction = direction;
+                        trade.status = status;
+                        trade.strike = strike;
+                        trade.expiry = expiry;
+                        trade.lots = lots;
+                        trade.qty = qty;
+                        trade.entryDate = entryDate;
+                        trade.entryTime = entryTime;
+                        trade.entrySpot = entrySpot;
+                        trade.entryCall = entryCall;
+                        trade.entryPut = entryPut;
+                        trade.entryPD = entryPD;
+                        
+                        trade.exitDate = exitDate;
+                        trade.exitTime = exitTime;
+                        trade.exitSpot = exitSpot;
+                        trade.exitCall = exitCall;
+                        trade.exitPut = exitPut;
+                        trade.finalPnL = finalPnL;
+                        if (status !== 'OPEN' && !trade.exitId) {
+                            trade.exitId = getUniqueId();
+                        } else if (status === 'OPEN') {
+                            trade.exitId = null;
+                        }
+                    }
+                    
+                    if (idx !== null && liveTrackerState[idx].currentTradeId === tradeId && status !== 'OPEN') {
+                        liveTrackerState[idx].active = false;
+                        liveTrackerState[idx].currentTradeId = null;
+                        el(`livePanel${idx}`).style.display = 'none';
+                        el(`btnLiveExit${idx}`).style.display = 'none';
+                    }
+                } else {
+                    const newId = getUniqueId();
+                    if (status !== 'OPEN') {
+                        exitId = getUniqueId() + 1;
+                    }
+                    const newTrade = {
+                        id: newId,
+                        status: status,
+                        entryDate: entryDate,
+                        entryTime: entryTime,
+                        exitDate: exitDate,
+                        exitTime: exitTime,
+                        symbol: symbol,
+                        direction: direction,
+                        strike: strike,
+                        lots: lots,
+                        qty: qty,
+                        entrySpot: entrySpot,
+                        entryCall: entryCall,
+                        entryPut: entryPut,
+                        entryPD: entryPD,
+                        expiry: expiry,
+                        exitSpot: exitSpot,
+                        exitCall: exitCall,
+                        exitPut: exitPut,
+                        finalPnL: finalPnL,
+                        exitId: exitId
+                    };
+                    tradeBook.push(newTrade);
+                    
+                    if (idx !== null) {
+                        const lt = liveTrackerState[idx];
+                        if (status === 'OPEN') {
+                            lt.active = true;
+                            lt.direction = direction.toLowerCase();
+                            lt.lots = lots || 1;
+                            lt.lotMult = qty;
+                            lt.entrySpot = entrySpot;
+                            lt.entryCall = entryCall;
+                            lt.entryPut = entryPut;
+                            lt.lockedStrike = strike;
+                            lt.currentTradeId = newId;
+                            
+                            el(`liveDir${idx}`).value = lt.direction;
+                            if (el(`liveLots${idx}`)) el(`liveLots${idx}`).value = lt.lots;
+                            if (el(`liveLotMult${idx}`)) el(`liveLotMult${idx}`).value = qty / (lots || 1);
+                            updateQty(idx);
+                            el(`liveLockStrike${idx}`).innerText = strike;
+                            el(`liveEntrySpot${idx}`).innerText = entrySpot.toFixed(2);
+                            el(`liveEntryCall${idx}`).innerText = entryCall.toFixed(2);
+                            el(`liveEntryPut${idx}`).innerText = entryPut.toFixed(2);
+                            el(`liveEntryPD${idx}`).innerText = entryPD > 0 ? '+' + entryPD.toFixed(2) : entryPD.toFixed(2);
+                            
+                            el(`livePanel${idx}`).style.display = 'block';
+                            el(`btnLiveExit${idx}`).style.display = 'block';
+                            
+                            el(`strikeInput${idx}`).value = strike;
+                        }
+                    }
+                }
+                
+                saveTradeBook();
+                closeAddEditTradeModal();
+                
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    if (boxSymbol[i]) {
+                        renderTradeDetails(i);
+                    }
+                }
+                
+                if (!el('tradeHistoryModal').classList.contains('hidden')) {
+                    fetch(`${_tradeApiBase}/api/trades/history?user=${encodeURIComponent(currentUser)}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success && Array.isArray(data.trades)) {
+                                allDbTrades = data.trades;
+                                populateFilterDropdowns();
+                                filterHistoryTable();
+                            }
+                        })
+                        .catch(e => console.error('[TradesHistory] Refresh failed', e));
+                }
+            }
+
+            function closeTradeHistoryModal() {
+                const modal = el('tradeHistoryModal');
+                const content = el('tradeHistoryModalContent');
+                content.classList.remove('scale-100', 'opacity-100');
+                content.classList.add('scale-95', 'opacity-0');
+                
+                setTimeout(() => {
+                    modal.classList.remove('flex');
+                    modal.classList.add('hidden');
+                }, 200);
+            }
+
             function populateFilterDropdowns() {
                 const symSelect = el('histFilterSymbol');
                 // Get unique symbols in DB trades
@@ -1272,7 +1814,10 @@
                             <td class="p-3 font-mono text-gray-400">${entryStr}</td>
                             <td class="p-3 font-mono text-gray-400">${exitStr}</td>
                             <td class="p-3 font-mono font-bold ${pnlClass}">${pnlStr}</td>
-                            <td class="p-3 text-center">
+                            <td class="p-3 text-center flex justify-center gap-1.5">
+                                <button onclick="openEditTradeModal(event, null, ${t.id})" class="p-1 rounded bg-[#231b2e] hover:bg-amber-500/20 hover:text-amber-400 hover:border-amber-500/50 text-gray-400 border border-[#2d2640] transition" title="Edit Trade Record">
+                                    <i class="ph ph-pencil-simple"></i>
+                                </button>
                                 <button onclick="deleteHistoryTrade(${t.id})" class="p-1 rounded bg-[#231b2e] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 border border-[#2d2640] transition" title="Delete Trade from DB">
                                     <i class="ph ph-trash"></i>
                                 </button>
@@ -1535,13 +2080,14 @@
                     
                     const inlineExit = t.status === 'OPEN' ? `<button onclick="exitSpecificTrade(event, ${idx}, ${t.id})" class="ml-2 bg-red-600 hover:bg-red-500 text-white text-xs px-2.5 py-1 rounded font-bold transition">Exit</button>` : '';
                     const inlineCalc = (t.status === 'CLOSED' || t.status === 'EXPIRED') ? `<button onclick="openCalcSpecificTrade(event, ${t.id})" class="ml-2 bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded font-bold transition" title="Open in Position Calculator"><i class="ph ph-calculator"></i></button>` : '';
+                    const inlineEdit = `<button onclick="openEditTradeModal(event, ${idx}, ${t.id})" class="ml-2 bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1 rounded font-bold transition" title="Edit Trade"><i class="ph ph-pencil-simple"></i></button>`;
                     
                     const expiryStr = t.expiry || '--';
                     const statusBadge = t.status === 'EXPIRED' ? '<span class="text-amber-500 font-bold text-xs ml-1">[EXPIRED]</span>' : '';
 
                     html += `
                             <tr class="border-b border-[#2d2640] transition text-sm ${rowHover}" ${actionAttr}>
-                                <td class="p-2 font-mono flex items-center gap-1">${statusDot}${timeStr}${statusBadge} ${inlineExit}${inlineCalc}</td>
+                                <td class="p-2 font-mono flex items-center gap-1">${statusDot}${timeStr}${statusBadge} ${inlineExit}${inlineCalc}${inlineEdit}</td>
                                 <td class="p-2 ${t.direction === 'LONG' ? 'text-emerald-400' : 'text-rose-400'} font-bold">${t.direction}</td>
                                 <td class="p-2 font-mono font-bold">${t.lots ? t.lots + 'L (' + t.qty + ')' : t.qty || '--'}</td>
                                 <td class="p-2 font-mono text-indigo-300 font-bold">${t.strike}</td>

@@ -686,8 +686,10 @@
         // ─── Backend Auto-Detection ───
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol;
-        const SCANNER_API = protocol === 'file:' ? `http://${host}:8001` : ``;  // Dedicated fast scanner
-        const FALLBACK_API = protocol === 'file:' ? `http://${host}:8000` : ``;  // Main backend fallback
+        const port = window.location.port;
+        const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+        const SCANNER_API = isDev ? `http://${host}:8001` : ``;  // Dedicated fast scanner
+        const FALLBACK_API = isDev ? `http://${host}:8000` : ``;  // Main backend fallback
         let activeAPI = null;  // Will be set after detection
 
         const symbolInput = document.getElementById('symbolInput');

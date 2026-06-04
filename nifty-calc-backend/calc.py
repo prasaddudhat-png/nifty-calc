@@ -104,7 +104,17 @@ INDEX_SPOT_TOKENS = {
     "FINNIFTY":   ("NSE", "99926037", 50),
     "MIDCPNIFTY": ("NSE", "99926074", 25),
     "SENSEX":     ("BSE", "99919000", 100),
-    "BANKEX":     ("BSE", "99919015", 100),
+    "BANKEX":     ("BSE", "99919012", 100), # Fixed token from 99919015 to 99919012
+}
+
+# Known index spot tokens → trading symbol mapping (used for fallback fetch via getLtpData)
+INDEX_SPOT_TRADING_SYMBOLS = {
+    "99926000": "Nifty 50",
+    "99926009": "Nifty Bank",
+    "99926037": "Nifty Fin Service",
+    "99926074": "NIFTY MID SELECT",
+    "99919000": "SENSEX",
+    "99919012": "BANKEX",
 }
 
 def login_angel_one():
@@ -256,8 +266,8 @@ def _build_equity_index():
             if name not in opt_idx:
                 opt_idx[name] = []
             opt_idx[name].append(item)
-        # Index Options: NFO OPTIDX grouped by name
-        if seg == "NFO" and itype == "OPTIDX" and name:
+        # Index Options: NFO/BFO OPTIDX grouped by name
+        if seg in ["NFO", "BFO"] and itype == "OPTIDX" and name:
             if name not in idx_opt:
                 idx_opt[name] = []
             idx_opt[name].append(item)
@@ -1202,6 +1212,13 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
                 break
             print(f"[SymSynth] {symbol} spot=0, retry {attempt+1}/3...")
             time.sleep(0.5)
+        
+        # Robust fallback using getLtpData (get_ltp) when bulk LTP returns 0 (e.g. market closed)
+        if spot_price <= 0:
+            trading_sym = INDEX_SPOT_TRADING_SYMBOLS.get(spot_tok)
+            if trading_sym:
+                print(f"[SymSynth] {symbol} spot=0 from bulk, falling back to get_ltp using trading symbol '{trading_sym}'...")
+                spot_price = get_ltp(exch, trading_sym, spot_tok)
     else:
         eq = _find_equity_token(symbol)
         if not eq:
@@ -1215,6 +1232,13 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
                 break
             print(f"[SymSynth] {symbol} spot=0, retry {attempt+1}/3...")
             time.sleep(0.5)
+            
+        # Robust fallback using getLtpData (get_ltp) when bulk LTP returns 0
+        if spot_price <= 0:
+            trading_sym = eq.get("symbol")
+            if trading_sym:
+                print(f"[SymSynth] Stock {symbol} spot=0 from bulk, falling back to get_ltp using trading symbol '{trading_sym}'...")
+                spot_price = get_ltp("NSE", trading_sym, spot_tok)
 
     if spot_price <= 0 and not strike:
         return {"success": False, "error": f"Failed to fetch spot price for {symbol} (market closed?)"}
@@ -1234,8 +1258,9 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
     # ── Fetch option prices (with retry) ──
     ce_price = 0.0
     pe_price = 0.0
+    exch_opt = ce.get("exch_seg", "NFO")
     for attempt in range(3):
-        opt_prices = _batched_ltp_quote("NFO", [ce["token"], pe["token"]])
+        opt_prices = _batched_ltp_quote(exch_opt, [ce["token"], pe["token"]])
         ce_price = opt_prices.get(ce["token"], 0.0)
         pe_price = opt_prices.get(pe["token"], 0.0)
         if ce_price > 0 or pe_price > 0:
@@ -1555,6 +1580,12 @@ def init_db():
                 exitId INTEGER
             )
         """)
+        # Check if user column exists in trades table
+        cursor.execute("PRAGMA table_info(trades)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if 'user' not in columns:
+            cursor.execute("ALTER TABLE trades ADD COLUMN user TEXT DEFAULT 'User 1'")
+            print("Migration: Added user column to trades table.")
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS market_ticks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1690,8 +1721,8 @@ def system_ip():
     return {"success": True, "ip": get_local_ip()}
 
 @app.get("/api/trades")
-def get_trades():
-    """Get active trades (OPEN/EXPIRED) or trades entered/exited today."""
+def get_trades(user: str = "User 1"):
+    """Get active trades (OPEN/EXPIRED) or trades entered/exited today for a specific user."""
     try:
         conn = sqlite3.connect(DB_FILE)
         conn.row_factory = sqlite3.Row
@@ -1702,8 +1733,8 @@ def get_trades():
         
         cursor.execute("""
             SELECT * FROM trades 
-            WHERE entryDate = ? OR exitDate = ? OR status IN ('OPEN', 'EXPIRED')
-        """, (today_str, today_str))
+            WHERE (entryDate = ? OR exitDate = ? OR status IN ('OPEN', 'EXPIRED')) AND user = ?
+        """, (today_str, today_str, user))
         
         rows = cursor.fetchall()
         trades = [dict(row) for row in rows]
@@ -1713,9 +1744,10 @@ def get_trades():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/trades")
-def save_trades(payload: dict):
-    """Save/update trades in database."""
+def save_trades(payload: dict, user: str = "User 1"):
+    """Save/update trades in database for a specific user."""
     trades = payload.get("trades", [])
+    user_val = payload.get("user", user)
     if not trades:
         return {"success": True, "count": 0}
     try:
@@ -1726,8 +1758,8 @@ def save_trades(payload: dict):
                 INSERT OR REPLACE INTO trades (
                     id, status, entryDate, entryTime, exitDate, exitTime, symbol, direction,
                     strike, lots, qty, entrySpot, entryCall, entryPut, entryPD, expiry,
-                    exitSpot, exitCall, exitPut, finalPnL, exitId
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    exitSpot, exitCall, exitPut, finalPnL, exitId, user
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 t.get("id"),
                 t.get("status"),
@@ -1749,7 +1781,8 @@ def save_trades(payload: dict):
                 t.get("exitCall"),
                 t.get("exitPut"),
                 t.get("finalPnL"),
-                t.get("exitId")
+                t.get("exitId"),
+                user_val
             ))
         conn.commit()
         conn.close()
@@ -1758,13 +1791,13 @@ def save_trades(payload: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/trades/history")
-def get_trades_history():
-    """Get all historical trades ordered by entry time descending."""
+def get_trades_history(user: str = "User 1"):
+    """Get all historical trades for a specific user ordered by entry time descending."""
     try:
         conn = sqlite3.connect(DB_FILE)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM trades ORDER BY id DESC")
+        cursor.execute("SELECT * FROM trades WHERE user = ? ORDER BY id DESC", (user,))
         rows = cursor.fetchall()
         trades = [dict(row) for row in rows]
         conn.close()
@@ -1773,12 +1806,12 @@ def get_trades_history():
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.delete("/api/trades/{trade_id}")
-def delete_trade(trade_id: int):
+def delete_trade(trade_id: int, user: str = "User 1"):
     """Delete a specific trade from history."""
     try:
         conn = sqlite3.connect(DB_FILE)
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM trades WHERE id = ?", (trade_id,))
+        cursor.execute("DELETE FROM trades WHERE id = ? AND user = ?", (trade_id, user))
         conn.commit()
         conn.close()
         return {"success": True, "message": f"Trade {trade_id} deleted successfully."}

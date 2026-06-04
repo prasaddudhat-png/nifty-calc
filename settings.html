@@ -199,8 +199,10 @@
     <script>
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol;
-        const API_URL = protocol === 'file:' ? `http://${host}:8000` : ``;
-        const SCANNER_API_URL = protocol === 'file:' ? `http://${host}:8001` : ``;
+        const port = window.location.port;
+        const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+        const API_URL = isDev ? `http://${host}:8000` : ``;
+        const SCANNER_API_URL = isDev ? `http://${host}:8001` : ``;
 
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
