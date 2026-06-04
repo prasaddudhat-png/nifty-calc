@@ -1257,6 +1257,7 @@
             let tradeBook = [];
             let _tradeSaveTimer = null;
             const _tradeApiBase = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+            const currentUser = 'User 1';
 
             function loadTradeBook() {
                 // Load from localStorage first (instant), then sync from server
@@ -1265,7 +1266,7 @@
                     if (data) tradeBook = JSON.parse(data);
                 } catch(e) {}
                 // Fetch from server (overrides localStorage with server truth)
-                fetch(`${_tradeApiBase}/api/trades`)
+                fetch(`${_tradeApiBase}/api/trades?user=${encodeURIComponent(currentUser)}`)
                     .then(r => r.json())
                     .then(data => {
                         if (data.success && Array.isArray(data.trades) && data.trades.length > 0) {
@@ -1294,10 +1295,10 @@
             }
 
             function _pushTradesToServer() {
-                fetch(`${_tradeApiBase}/api/trades`, {
+                fetch(`${_tradeApiBase}/api/trades?user=${encodeURIComponent(currentUser)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trades: tradeBook })
+                    body: JSON.stringify({ trades: tradeBook, user: currentUser })
                 }).catch(e => console.warn('[Trades] Server save failed', e));
             }
 
@@ -1845,7 +1846,7 @@
                             allDbTrades = allDbTrades.filter(t => t.id !== tradeId);
                             // Also update frontend tradeBook
                             tradeBook = tradeBook.filter(t => t.id !== tradeId);
-                            localStorage.setItem(`autocalc_tradebook_${currentUser}`, JSON.stringify(tradeBook));
+                            saveTradeBook();
                             
                             // Re-render both views
                             filterHistoryTable();
