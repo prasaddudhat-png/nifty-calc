@@ -1282,7 +1282,11 @@
             // Trade Book — synced to backend server (shared across LAN)
             let tradeBook = [];
             let _tradeSaveTimer = null;
-            const _tradeApiBase = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
+            const host = window.location.hostname || 'localhost';
+            const protocol = window.location.protocol;
+            const port = window.location.port;
+            const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+            const _tradeApiBase = isDev ? `http://${host}:8000` : '';
             let currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
 
             function loadTradeBook() {
