@@ -305,6 +305,7 @@ import threading
 import time
 api_lock = threading.Lock()
 last_api_call_time = 0.0
+synthetic_cache = {}
 
 def wait_for_api_rate_limit():
     global last_api_call_time
@@ -511,6 +512,14 @@ def get_synthetic_future_all():
 
 @app.get("/api/nifty/synthetic")
 def get_synthetic_future(strike: float = None, expiry: str = None):
+    global synthetic_cache
+    cache_key = (strike, expiry)
+    now = time.time()
+    if cache_key in synthetic_cache:
+        cached_time, cached_result = synthetic_cache[cache_key]
+        if now - cached_time < 1.0:
+            return cached_result
+
     if not fetch_instrument_list():
         return {"success": False, "error": "Failed to load instrument master list"}
         
@@ -593,7 +602,7 @@ def get_synthetic_future(strike: float = None, expiry: str = None):
         
     synthetic_future = atm_strike + call_price - put_price
     
-    return {
+    res = {
         "success": True,
         "strike": atm_strike,
         "expiry": selected_expiry,
@@ -602,6 +611,8 @@ def get_synthetic_future(strike: float = None, expiry: str = None):
         "put_price": put_price,
         "synthetic_future": round(synthetic_future, 2)
     }
+    synthetic_cache[cache_key] = (time.time(), res)
+    return res
 
 @app.get("/api/excel/pd")
 def get_excel_pd(strike: float = None, expiry: str = None):
