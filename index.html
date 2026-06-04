@@ -198,6 +198,22 @@
             color: #8b85a1;
         }
 
+        /* User switcher segmented control styles */
+        .user-switch-btn {
+            background: transparent;
+            color: #8b85a1;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .user-switch-btn:hover {
+            color: #c084fc;
+        }
+        .user-switch-btn.active {
+            background: #a78bfa;
+            color: #0f0b15;
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -212,10 +228,20 @@
         <div class="top-bar">
             <div>
                 <h1 class="text-2xl font-bold tracking-tight">Auto-Calc</h1>
-                <div class="flex items-center mt-1">
-                    <span id="statusDot" class="status-dot status-idle"></span>
-                    <span id="statusText" class="data-label text-xs">Ready</span>
-                    <span id="serverIpDisplay" class="ml-4 data-label text-xs font-mono bg-[#1a2f2e] text-green-400 px-2 py-0.5 rounded border border-green-800 hidden" title="Local Network IP"></span>
+                <div class="flex items-center mt-1 gap-4">
+                    <div class="flex items-center">
+                        <span id="statusDot" class="status-dot status-idle"></span>
+                        <span id="statusText" class="data-label text-xs">Ready</span>
+                    </div>
+                    <span id="serverIpDisplay" class="data-label text-xs font-mono bg-[#1a2f2e] text-green-400 px-2 py-0.5 rounded border border-green-800 hidden" title="Local Network IP"></span>
+                    
+                    <!-- User Switcher Segmented Bar -->
+                    <div class="flex items-center gap-1 bg-[#1a1424] border border-[#2d2640] rounded-lg p-0.5 ml-2">
+                        <button onclick="switchUser('pra')" id="userBtn_pra" class="user-switch-btn px-2 py-0.5 text-[11px] rounded font-semibold transition">pra</button>
+                        <button onclick="switchUser('jay')" id="userBtn_jay" class="user-switch-btn px-2 py-0.5 text-[11px] rounded font-semibold transition">jay</button>
+                        <button onclick="switchUser('har')" id="userBtn_har" class="user-switch-btn px-2 py-0.5 text-[11px] rounded font-semibold transition">har</button>
+                        <button onclick="switchUser('rex')" id="userBtn_rex" class="user-switch-btn px-2 py-0.5 text-[11px] rounded font-semibold transition">rex</button>
+                    </div>
                 </div>
             </div>
 
@@ -1257,21 +1283,29 @@
             let tradeBook = [];
             let _tradeSaveTimer = null;
             const _tradeApiBase = window.location.protocol === 'file:' ? 'http://localhost:8000' : '';
-            const currentUser = 'User 1';
+            let currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
 
             function loadTradeBook() {
+                // Clear local memory first to prevent leakage from previous user
+                tradeBook = [];
                 // Load from localStorage first (instant), then sync from server
                 try {
-                    const data = localStorage.getItem('autocalc_tradebook');
+                    const data = localStorage.getItem('autocalc_tradebook_' + currentUser);
                     if (data) tradeBook = JSON.parse(data);
                 } catch(e) {}
+                
+                // Re-render cached or empty trades immediately
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    if (boxSymbol[i]) renderTradeDetails(i);
+                }
+
                 // Fetch from server (overrides localStorage with server truth)
                 fetch(`${_tradeApiBase}/api/trades?user=${encodeURIComponent(currentUser)}`)
                     .then(r => r.json())
                     .then(data => {
                         if (data.success && Array.isArray(data.trades) && data.trades.length > 0) {
                             tradeBook = data.trades;
-                            localStorage.setItem('autocalc_tradebook', JSON.stringify(tradeBook));
+                            localStorage.setItem('autocalc_tradebook_' + currentUser, JSON.stringify(tradeBook));
                             // Re-render trade details for all active boxes
                             for (let i = 0; i < NUM_BOXES; i++) {
                                 if (boxSymbol[i]) renderTradeDetails(i);
@@ -1287,7 +1321,7 @@
             function saveTradeBook() {
                 // Save to localStorage immediately
                 try {
-                    localStorage.setItem('autocalc_tradebook', JSON.stringify(tradeBook));
+                    localStorage.setItem('autocalc_tradebook_' + currentUser, JSON.stringify(tradeBook));
                 } catch(e) {}
                 // Debounced save to server (avoid flooding on rapid updates)
                 clearTimeout(_tradeSaveTimer);
@@ -1300,6 +1334,33 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ trades: tradeBook, user: currentUser })
                 }).catch(e => console.warn('[Trades] Server save failed', e));
+            }
+
+            function switchUser(user, isStartup = false) {
+                const validUsers = ['pra', 'jay', 'har', 'rex'];
+                if (!validUsers.includes(user)) user = 'pra';
+                
+                currentUser = user;
+                localStorage.setItem('autocalc_current_user', currentUser);
+                
+                // Update switcher buttons UI active classes
+                validUsers.forEach(u => {
+                    const btn = el('userBtn_' + u);
+                    if (btn) {
+                        if (u === currentUser) {
+                            btn.classList.add('active');
+                        } else {
+                            btn.classList.remove('active');
+                        }
+                    }
+                });
+                
+                if (!isStartup) {
+                    loadTradeBook();
+                    if (!el('tradeHistoryModal').classList.contains('hidden')) {
+                        openTradeHistoryModal();
+                    }
+                }
             }
 
             // ─── Trade History Database Modal Controllers ───
@@ -1318,7 +1379,7 @@
                 }, 10);
 
                 // Fetch trades from database
-                fetch(`${_tradeApiBase}/api/trades/history`)
+                fetch(`${_tradeApiBase}/api/trades/history?user=${encodeURIComponent(currentUser)}`)
                     .then(r => r.json())
                     .then(data => {
                         if (data.success && Array.isArray(data.trades)) {
@@ -1962,6 +2023,7 @@
                 rebuildChartDatasets(idx);
             }
 
+            switchUser(currentUser, true);
             loadTradeBook();
 
             // Auto-close expired OPEN trades
