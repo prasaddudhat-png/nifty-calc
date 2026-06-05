@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import PlainTextResponse
@@ -11,9 +11,6 @@ import os
 import re
 import socket
 import sqlite3
-import asyncio
-from typing import List, Dict, Set, Tuple
-from SmartApi.smartWebSocketV2 import SmartWebSocketV2
 
 app = FastAPI(title="Nifty Synthetic Future Calculator API")
 
@@ -109,20 +106,20 @@ last_api_error = ""
 
 # Known index symbols → (exchange, spot_token, strike_interval)
 INDEX_SPOT_TOKENS = {
-    "NIFTY":      ("NSE", "26000", 50),
-    "BANKNIFTY":  ("NSE", "26009", 100),
-    "FINNIFTY":   ("NSE", "26037", 50),
-    "MIDCPNIFTY": ("NSE", "26074", 25),
+    "NIFTY":      ("NSE", "99926000", 50),
+    "BANKNIFTY":  ("NSE", "99926009", 100),
+    "FINNIFTY":   ("NSE", "99926037", 50),
+    "MIDCPNIFTY": ("NSE", "99926074", 25),
     "SENSEX":     ("BSE", "99919000", 100),
     "BANKEX":     ("BSE", "99919012", 100), # Fixed token from 99919015 to 99919012
 }
 
 # Known index spot tokens → trading symbol mapping (used for fallback fetch via getLtpData)
 INDEX_SPOT_TRADING_SYMBOLS = {
-    "26000": "NIFTY",
-    "26009": "NIFTY BANK",
-    "26037": "NIFTY FIN SERVICE",
-    "26074": "NIFTY MID SELECT",
+    "99926000": "Nifty 50",
+    "99926009": "Nifty Bank",
+    "99926037": "Nifty Fin Service",
+    "99926074": "NIFTY MID SELECT",
     "99919000": "SENSEX",
     "99919012": "BANKEX",
 }
@@ -1925,412 +1922,14 @@ def get_market_ticks(symbol: str, expiry: str = None, strike: float = None, limi
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ─── REAL-TIME WEBSOCKET STREAMING ───
-
-# Global state for WebSocket
-class AngelOneWSManager:
-    def __init__(self):
-        self.sws = None
-        self.loop = None
-        self.subscribed_tokens = {} # (exchange_type, token) -> count
-        self.is_connected = False
-        self.lock = threading.Lock()
-        self.reconnect_delay = 5
-        
-    def start(self, loop):
-        self.loop = loop
-        self.connect_ws()
-        
-    def connect_ws(self):
-        with self.lock:
-            if self.is_connected:
-                return
-            # Ensure logged in
-            if not auth_token or not feed_token:
-                login_angel_one()
-            if not auth_token or not feed_token:
-                print("[WS] Connection deferred: Login failed.")
-                return
-                
-            print("[WS] Initializing SmartWebSocketV2 connection...")
-            self.sws = SmartWebSocketV2(auth_token, API_KEY, CLIENT_CODE, feed_token)
-            
-            self.sws.on_open = self._on_open
-            self.sws.on_data = self._on_data
-            self.sws.on_error = self._on_error
-            self.sws.on_close = self._on_close
-            
-            # Run in daemon thread
-            threading.Thread(target=self.sws.connect, daemon=True).start()
-            
-    def _on_open(self, wsapp):
-        print("[WS] Connected to Angel One streaming server.")
-        self.is_connected = True
-        self.reconnect_delay = 5
-        # Re-subscribe to all active tokens
-        self.resubscribe_all()
-        
-    def _on_data(self, wsapp, message):
-        token = message.get("token")
-        exchange_type = message.get("exchange_type")
-        ltp_paisa = message.get("last_traded_price")
-        
-        if token and ltp_paisa is not None:
-            ltp = float(ltp_paisa) / 100.0
-            if self.loop:
-                asyncio.run_coroutine_threadsafe(
-                    dispatch_price_update(token, exchange_type, ltp), self.loop
-                )
-                
-    def _on_error(self, wsapp, error):
-        print(f"[WS] Streaming error: {error}")
-        
-    def _on_close(self, wsapp, *args):
-        print(f"[WS] Streaming connection closed: {args}")
-        self.is_connected = False
-        # Trigger reconnect
-        threading.Thread(target=self._reconnect_loop, daemon=True).start()
-        
-    def _reconnect_loop(self):
-        time.sleep(self.reconnect_delay)
-        if not self.is_connected:
-            print(f"[WS] Retrying streaming connection (delay={self.reconnect_delay}s)...")
-            self.reconnect_delay = min(self.reconnect_delay * 2, 60)
-            self.connect_ws()
-            
-    def resubscribe_all(self):
-        by_exchange = {}
-        with self.lock:
-            for (exchange_type, token) in self.subscribed_tokens.keys():
-                by_exchange.setdefault(exchange_type, []).append(token)
-                
-        for exchange_type, tokens in by_exchange.items():
-            if tokens:
-                try:
-                    correlation_id = f"resub_{exchange_type}"
-                    token_list = [{"exchangeType": exchange_type, "tokens": tokens}]
-                    self.sws.subscribe(correlation_id, 1, token_list)
-                    print(f"[WS] Bulk re-subscribed to {len(tokens)} tokens on exch={exchange_type}")
-                except Exception as e:
-                    print(f"[WS] Bulk re-subscription failed: {e}")
-                    
-    def subscribe(self, exchange_type, token):
-        with self.lock:
-            key = (exchange_type, token)
-            if key not in self.subscribed_tokens:
-                self.subscribed_tokens[key] = 0
-            self.subscribed_tokens[key] += 1
-            is_new = (self.subscribed_tokens[key] == 1)
-            
-        if is_new and self.is_connected:
-            try:
-                correlation_id = f"sub_{token}"
-                token_list = [{"exchangeType": exchange_type, "tokens": [token]}]
-                self.sws.subscribe(correlation_id, 1, token_list)
-                print(f"[WS] Subscribed to {token} (exch={exchange_type})")
-            except Exception as e:
-                print(f"[WS] Subscription failed for {token}: {e}")
-                
-    def unsubscribe(self, exchange_type, token):
-        with self.lock:
-            key = (exchange_type, token)
-            if key in self.subscribed_tokens:
-                self.subscribed_tokens[key] -= 1
-                should_unsub = (self.subscribed_tokens[key] <= 0)
-                if should_unsub:
-                    del self.subscribed_tokens[key]
-            else:
-                should_unsub = False
-                
-        if should_unsub and self.is_connected:
-            try:
-                correlation_id = f"unsub_{token}"
-                token_list = [{"exchangeType": exchange_type, "tokens": [token]}]
-                self.sws.unsubscribe(correlation_id, 1, token_list)
-                print(f"[WS] Unsubscribed from {token} (exch={exchange_type})")
-            except Exception as e:
-                print(f"[WS] Unsubscription failed for {token}: {e}")
-
-ws_manager = AngelOneWSManager()
-live_price_cache = {} # token -> price
-
-class BoxSubscription:
-    def __init__(self, box_idx: int):
-        self.box_idx = box_idx
-        self.symbol = None
-        self.requested_strike = None
-        self.requested_expiry = None
-        
-        # Spot token info
-        self.spot_token = None
-        self.spot_exchange_type = None
-        
-        # Option token info
-        self.ce_token = None
-        self.pe_token = None
-        self.option_exchange_type = None
-        
-        # Resolved values
-        self.resolved_strike = None
-        self.resolved_expiry = None
-        
-        # Live prices
-        self.last_spot_price = 0.0
-        self.last_ce_price = 0.0
-        self.last_pe_price = 0.0
-        self.lot_size = 0
-        self.available_expiries = []
-
-    def unsubscribe_all(self):
-        # Unsubscribe spot
-        if self.spot_token and self.spot_exchange_type:
-            ws_manager.unsubscribe(self.spot_exchange_type, self.spot_token)
-        # Unsubscribe options
-        if self.ce_token and self.option_exchange_type:
-            ws_manager.unsubscribe(self.option_exchange_type, self.ce_token)
-        if self.pe_token and self.option_exchange_type:
-            ws_manager.unsubscribe(self.option_exchange_type, self.pe_token)
-            
-        self.spot_token = None
-        self.spot_exchange_type = None
-        self.ce_token = None
-        self.pe_token = None
-        self.option_exchange_type = None
-
-def get_exchange_type(exch_seg):
-    if exch_seg == "NSE":
-        return 1
-    elif exch_seg == "NFO":
-        return 2
-    elif exch_seg == "BSE":
-        return 3
-    elif exch_seg == "BFO":
-        return 7
-    elif exch_seg == "MCX":
-        return 5
-    return 1
-
-# Active client connections mapping: WebSocket -> Dict[int, BoxSubscription]
-active_connections: Dict[WebSocket, Dict[int, BoxSubscription]] = {}
-
-async def dispatch_price_update(token: str, exchange_type: int, price: float):
-    live_price_cache[token] = price
-    
-    for ws, boxes in list(active_connections.items()):
-        for box_idx, sub in list(boxes.items()):
-            updated = False
-            
-            if sub.spot_token == token and sub.spot_exchange_type == exchange_type:
-                sub.last_spot_price = price
-                updated = True
-                
-                if sub.requested_strike is None:
-                    strike_interval = 50
-                    if sub.symbol in INDEX_SPOT_TOKENS:
-                        strike_interval = INDEX_SPOT_TOKENS[sub.symbol][2]
-                    
-                    expected_atm = round(price / strike_interval) * strike_interval
-                    
-                    if expected_atm != sub.resolved_strike or not sub.ce_token:
-                        await resolve_and_subscribe_options(sub, price)
-                        
-            elif sub.ce_token == token and sub.option_exchange_type == exchange_type:
-                sub.last_ce_price = price
-                updated = True
-                
-            elif sub.pe_token == token and sub.option_exchange_type == exchange_type:
-                sub.last_pe_price = price
-                updated = True
-                
-            if updated:
-                await send_box_update(ws, sub)
-
-async def resolve_and_subscribe_options(sub: BoxSubscription, spot_price: float):
-    if sub.ce_token and sub.option_exchange_type:
-        ws_manager.unsubscribe(sub.option_exchange_type, sub.ce_token)
-    if sub.pe_token and sub.option_exchange_type:
-        ws_manager.unsubscribe(sub.option_exchange_type, sub.pe_token)
-        
-    sub.ce_token = None
-    sub.pe_token = None
-    sub.option_exchange_type = None
-    
-    loop = asyncio.get_event_loop()
-    symbol = sub.symbol
-    strike = sub.requested_strike
-    expiry = sub.requested_expiry
-    is_index = symbol in INDEX_SPOT_TOKENS
-    
-    try:
-        if is_index:
-            exch, spot_tok, strike_interval = INDEX_SPOT_TOKENS[symbol]
-            ce, pe, atm, T, target_exp, all_expiries = await loop.run_in_executor(
-                None, _find_index_options, symbol, spot_price, strike_interval, strike, expiry
-            )
-        else:
-            ce, pe, atm, T, target_exp, all_expiries = await loop.run_in_executor(
-                None, _find_atm_options, symbol, spot_price, strike, expiry
-            )
-            
-        if ce and pe:
-            sub.ce_token = ce["token"]
-            sub.pe_token = pe["token"]
-            sub.option_exchange_type = get_exchange_type(ce["exch_seg"])
-            sub.resolved_strike = atm
-            sub.resolved_expiry = target_exp
-            sub.available_expiries = all_expiries
-            
-            try:
-                sub.lot_size = int(ce.get("lot_size", 0))
-            except:
-                sub.lot_size = 0
-                
-            sub.last_ce_price = live_price_cache.get(sub.ce_token, 0.0)
-            sub.last_pe_price = live_price_cache.get(sub.pe_token, 0.0)
-            
-            ws_manager.subscribe(sub.option_exchange_type, sub.ce_token)
-            ws_manager.subscribe(sub.option_exchange_type, sub.pe_token)
-            
-            print(f"[WS-Sub] Resolved box {sub.box_idx} ({symbol}) ATM: {atm}, exp: {target_exp}. CE={sub.ce_token}, PE={sub.pe_token}")
-            
-    except Exception as e:
-        print(f"[WS-Sub] Error resolving options for {symbol}: {e}")
-
-async def send_box_update(ws: WebSocket, sub: BoxSubscription):
-    if not sub.resolved_strike or not sub.ce_token or not sub.pe_token:
-        return
-        
-    spot = sub.last_spot_price
-    ce = sub.last_ce_price
-    pe = sub.last_pe_price
-    synthetic = sub.resolved_strike + ce - pe
-    premium_discount = round(synthetic - spot, 2)
-    
-    payload = {
-        "type": "update",
-        "box": sub.box_idx,
-        "data": {
-            "success": True,
-            "symbol": sub.symbol,
-            "strike": sub.resolved_strike,
-            "expiry": sub.resolved_expiry,
-            "underlying": spot,
-            "call_price": ce,
-            "put_price": pe,
-            "synthetic_future": round(synthetic, 2),
-            "premium_discount": premium_discount,
-            "lot_size": sub.lot_size,
-            "available_expiries": sub.available_expiries
-        }
-    }
-    
-    try:
-        await ws.send_json(payload)
-    except:
-        pass
-
-async def handle_client_subscribe(ws: WebSocket, payload: dict):
-    box_idx = payload.get("box")
-    symbol = payload.get("symbol", "").strip().upper()
-    strike = payload.get("strike")
-    expiry = payload.get("expiry")
-    
-    if box_idx is None or not symbol:
-        return
-        
-    if ws not in active_connections:
-        active_connections[ws] = {}
-        
-    if box_idx in active_connections[ws]:
-        active_connections[ws][box_idx].unsubscribe_all()
-        
-    sub = BoxSubscription(box_idx)
-    sub.symbol = symbol
-    sub.requested_strike = float(strike) if strike else None
-    sub.requested_expiry = expiry if expiry else None
-    
-    active_connections[ws][box_idx] = sub
-    
-    is_index = symbol in INDEX_SPOT_TOKENS
-    spot_tok = None
-    spot_exch = None
-    
-    if is_index:
-        spot_exch, spot_tok, _ = INDEX_SPOT_TOKENS[symbol]
-    else:
-        eq = _find_equity_token(symbol)
-        if eq:
-            spot_tok = eq["token"]
-            spot_exch = eq["exch_seg"]
-            
-    if not spot_tok or not spot_exch:
-        try:
-            await ws.send_json({
-                "type": "error",
-                "box": box_idx,
-                "message": f"Symbol {symbol} not found"
-            })
-        except:
-            pass
-        return
-        
-    sub.spot_token = spot_tok
-    sub.spot_exchange_type = get_exchange_type(spot_exch)
-    
-    ws_manager.subscribe(sub.spot_exchange_type, sub.spot_token)
-    
-    spot_price = live_price_cache.get(spot_tok, 0.0)
-    if spot_price <= 0:
-        loop = asyncio.get_event_loop()
-        if is_index:
-            trading_sym = INDEX_SPOT_TRADING_SYMBOLS.get(spot_tok)
-            if trading_sym:
-                spot_price = await loop.run_in_executor(None, get_ltp, spot_exch, trading_sym, spot_tok)
-        else:
-            trading_sym = symbol
-            spot_price = await loop.run_in_executor(None, get_ltp, spot_exch, trading_sym, spot_tok)
-            
-    if spot_price > 0:
-        sub.last_spot_price = spot_price
-        live_price_cache[spot_tok] = spot_price
-        await resolve_and_subscribe_options(sub, spot_price)
-        await send_box_update(ws, sub)
-    else:
-        if sub.requested_strike:
-            await resolve_and_subscribe_options(sub, 0.0)
-            await send_box_update(ws, sub)
-
-@app.websocket("/ws/live")
-async def websocket_live(websocket: WebSocket):
-    await websocket.accept()
-    active_connections[websocket] = {}
-    print(f"[WS] Client connected: {websocket.client}")
-    try:
-        while True:
-            data = await websocket.receive_json()
-            action = data.get("action")
-            if action == "subscribe":
-                asyncio.create_task(handle_client_subscribe(websocket, data))
-    except WebSocketDisconnect:
-        print(f"[WS] Client disconnected: {websocket.client}")
-    except Exception as e:
-        print(f"[WS] Error in websocket loop: {e}")
-    finally:
-        boxes = active_connections.pop(websocket, {})
-        for box_idx, sub in boxes.items():
-            sub.unsubscribe_all()
-
 @app.on_event("startup")
-async def startup_event():
-    loop = asyncio.get_running_loop()
+def startup_event():
     import threading
     def background_fetch():
         login_angel_one()
         fetch_instrument_list()
         cleanup_old_ticks()
-        ws_manager.start(loop)
     threading.Thread(target=background_fetch, daemon=True).start()
-
 
 # Serve static files from parent directory
 app.mount("/", StaticFiles(directory="../", html=True), name="static")
