@@ -101,6 +101,8 @@ equity_index = {}      # "RELIANCE" → instrument item (O(1) lookup)
 options_index_cache = {}  # "RELIANCE" → [NFO OPTSTK items]
 index_options_cache = {}   # "NIFTY" → [NFO OPTIDX items]
 mcx_index = {}          # "GOLD" → instrument item (MCX futures, nearest expiry)
+last_login_error = ""
+last_api_error = ""
 
 # Known index symbols → (exchange, spot_token, strike_interval)
 INDEX_SPOT_TOKENS = {
@@ -123,8 +125,9 @@ INDEX_SPOT_TRADING_SYMBOLS = {
 }
 
 def login_angel_one():
-    global auth_token, feed_token, last_login_time
+    global auth_token, feed_token, last_login_time, last_login_error
     
+    last_login_error = ""
     for login_attempt in range(3):
         totp = pyotp.TOTP(TOTP_SECRET).now()
         
@@ -148,6 +151,7 @@ def login_angel_one():
         try:
             response = session.post(url, json=payload, headers=headers, timeout=10)
             if not response.text or not response.text.strip():
+                last_login_error = "Empty response from server"
                 print(f"Login attempt {login_attempt+1}/3: empty response, retrying...")
                 time.sleep(2)
                 continue
@@ -157,16 +161,35 @@ def login_angel_one():
                 auth_token = data['data']['jwtToken']
                 feed_token = data['data']['feedToken']
                 last_login_time = time.time()
+                last_login_error = ""
                 print("Successfully logged into Angel One")
                 return True
             else:
+                last_login_error = data.get("message", "Unknown login error")
                 print(f"Login attempt {login_attempt+1}/3 failed: {data}")
                 time.sleep(2)
         except Exception as e:
+            last_login_error = str(e)
             print(f"Login attempt {login_attempt+1}/3 exception: {e}")
             time.sleep(2)
     
     print("All login attempts failed!")
+    return False
+
+def check_token_status(data, status_code=200):
+    global auth_token
+    if status_code == 401:
+        print("[Auth] Token expired or invalid (HTTP 401). Clearing auth_token.")
+        auth_token = None
+        return True
+    if isinstance(data, dict):
+        # Gateway level auth token errors use camelCase "errorCode"
+        error_code = data.get("errorCode", "")
+        message = data.get("message", "")
+        if error_code == "AG8001" or message == "Invalid Token":
+            print(f"[Auth] Token expired or invalid ({error_code}: {message}). Clearing auth_token.")
+            auth_token = None
+            return True
     return False
 
 def get_headers():
@@ -315,7 +338,7 @@ def wait_for_api_rate_limit():
     last_api_call_time = time.time()
 
 def get_ltp(exchange, tradingsymbol, symboltoken):
-    global ltp_cache
+    global ltp_cache, last_api_error
     cache_key = f"{exchange}_{tradingsymbol}_{symboltoken}"
     current_time = time.time()
     
@@ -339,9 +362,13 @@ def get_ltp(exchange, tradingsymbol, symboltoken):
             try:
                 response = session.post(url, json=payload, headers=headers, timeout=10)
                 data = response.json()
+                if check_token_status(data, response.status_code):
+                    headers = get_headers()
+                    continue
                 if data.get("status") and data.get("data"):
                     price = float(data["data"]["ltp"])
                     ltp_cache[cache_key] = (current_time, price)
+                    last_api_error = ""
                     return price
                 else:
                     response_text = getattr(response, 'text', '')
@@ -349,18 +376,24 @@ def get_ltp(exchange, tradingsymbol, symboltoken):
                         print(f"Rate limited on attempt {attempt+1}! Retrying...")
                         time.sleep(1.5)
                         continue
+                    last_api_error = data.get("message", "Unknown error")
                     print(f"Failed to get LTP for {tradingsymbol}: {data}")
                     return 0.0
             except Exception as e:
                 error_msg = str(e)
-                response_text = response.text if getattr(response, 'text', None) else 'No response'
-                if "Access denied" in response_text or getattr(response, 'status_code', 0) == 429:
+                last_api_error = error_msg
+                response_text = ""
+                try:
+                    if 'response' in locals() and response is not None:
+                        response_text = getattr(response, 'text', '')
+                except:
+                    pass
+                if "Access denied" in response_text or ('response' in locals() and response is not None and response.status_code == 429):
                     print(f"Rate limited! Retrying...")
                     time.sleep(1.5)
                     continue
-                else:
-                    print(f"Exception fetching LTP for {tradingsymbol}: {e}")
-                    return 0.0
+                print(f"Exception fetching LTP for {tradingsymbol} on attempt {attempt+1}: {e}")
+                time.sleep(1.0)
         return 0.0
 
 @app.get("/api/nifty/expiries")
@@ -413,6 +446,9 @@ def get_bulk_ltp(exchange_tokens):
                     time.sleep(0.5 * (attempt + 1))
                     continue
                 data = response.json()
+                if check_token_status(data, response.status_code):
+                    headers = get_headers()
+                    continue
                 results = {}
                 if data.get("status") and data.get("data") and "fetched" in data["data"]:
                     for item in data["data"]["fetched"]:
@@ -614,46 +650,7 @@ def get_synthetic_future(strike: float = None, expiry: str = None):
     synthetic_cache[cache_key] = (time.time(), res)
     return res
 
-@app.get("/api/excel/pd")
-def get_excel_pd(strike: float = None, expiry: str = None):
-    """Retrieve raw Premium/Discount (Synthetic Future - Spot) as plain text for Excel."""
-    res = get_synthetic_future(strike, expiry)
-    if res.get("success"):
-        pd_val = res["synthetic_future"] - res["underlying"]
-        return PlainTextResponse(f"{pd_val:.2f}")
-    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
 
-@app.get("/api/excel/spot")
-def get_excel_spot(strike: float = None, expiry: str = None):
-    """Retrieve raw Spot price as plain text for Excel."""
-    res = get_synthetic_future(strike, expiry)
-    if res.get("success"):
-        return PlainTextResponse(f"{res['underlying']:.2f}")
-    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
-
-@app.get("/api/excel/synthetic")
-def get_excel_synthetic(strike: float = None, expiry: str = None):
-    """Retrieve raw Synthetic Future as plain text for Excel."""
-    res = get_synthetic_future(strike, expiry)
-    if res.get("success"):
-        return PlainTextResponse(f"{res['synthetic_future']:.2f}")
-    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
-
-@app.get("/api/excel/call")
-def get_excel_call(strike: float = None, expiry: str = None):
-    """Retrieve raw ATM Call price as plain text for Excel."""
-    res = get_synthetic_future(strike, expiry)
-    if res.get("success"):
-        return PlainTextResponse(f"{res['call_price']:.2f}")
-    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
-
-@app.get("/api/excel/put")
-def get_excel_put(strike: float = None, expiry: str = None):
-    """Retrieve raw ATM Put price as plain text for Excel."""
-    res = get_synthetic_future(strike, expiry)
-    if res.get("success"):
-        return PlainTextResponse(f"{res['put_price']:.2f}")
-    return PlainTextResponse("Error: " + res.get("error", "Unknown error"), status_code=400)
 
 @app.get("/api/market/movers")
 def get_market_movers():
@@ -905,6 +902,8 @@ def _batched_full_quote(exchange, tokens):
                         time.sleep(1.0 * (attempt + 1))
                         continue
                     data = resp.json()
+                    if check_token_status(data, resp.status_code):
+                        continue
                     if data.get("status") and data.get("data") and "fetched" in data["data"]:
                         fetched = data["data"]["fetched"]
                         unfetched = data["data"].get("unfetched", [])
@@ -964,6 +963,8 @@ def _batched_ltp_quote(exchange, tokens):
                         time.sleep(1.0 * (attempt + 1))
                         continue
                     data = resp.json()
+                    if check_token_status(data, resp.status_code):
+                        continue
                     if data.get("status") and data.get("data") and "fetched" in data["data"]:
                         fetched = data["data"]["fetched"]
                         unfetched = data["data"].get("unfetched", [])
@@ -1298,7 +1299,17 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
                 spot_price = get_ltp("NSE", trading_sym, spot_tok)
 
     if spot_price <= 0 and not strike:
-        return {"success": False, "error": f"Failed to fetch spot price for {symbol} (market closed?)"}
+        err_msg = f"Failed to fetch spot price for {symbol}"
+        if not auth_token:
+            if last_login_error:
+                err_msg += f" (Angel One Login failed: {last_login_error})"
+            else:
+                err_msg += " (Not logged into Angel One)"
+        elif last_api_error:
+            err_msg += f" (Angel One API error: {last_api_error})"
+        else:
+            err_msg += " (market closed?)"
+        return {"success": False, "error": err_msg}
     elif spot_price <= 0 and strike:
         # Prevent completely failing if spot is 0 but we have a predefined strike
         spot_price = 0.0
@@ -1410,6 +1421,7 @@ def fetch_series_candles(exchange, token, days_back=20):
                 time.sleep(1)
                 res = session.post(url, json=payload, headers=headers, timeout=15)
             data = res.json()
+            check_token_status(data, res.status_code)
             if data.get("status") and data.get("data"):
                 return data["data"]
         except Exception as e:
@@ -1446,6 +1458,7 @@ def fetch_candle_data_with_lookback(exchange, token, days_lookback=5):
                     time.sleep(1)
                     res = session.post(url, json=payload, headers=headers, timeout=10)
                 data = res.json()
+                check_token_status(data, res.status_code)
                 if data.get("status") and data.get("data"):
                     fetch_date = target_date.strftime("%Y-%m-%d")
                     return data["data"], fetch_date

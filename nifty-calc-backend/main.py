@@ -73,6 +73,22 @@ def login_angel_one():
         print(f"Exception during login: {e}")
         return False
 
+def check_token_status(data, status_code=200):
+    global auth_token
+    if status_code == 401:
+        print("[Auth] Token expired or invalid (HTTP 401). Clearing auth_token.")
+        auth_token = None
+        return True
+    if isinstance(data, dict):
+        # Gateway level auth token errors use camelCase "errorCode"
+        error_code = data.get("errorCode", "")
+        message = data.get("message", "")
+        if error_code == "AG8001" or message == "Invalid Token":
+            print(f"[Auth] Token expired or invalid ({error_code}: {message}). Clearing auth_token.")
+            auth_token = None
+            return True
+    return False
+
 def get_headers():
     global auth_token, last_login_time
     # Token usually valid for 24h, refresh if older than 22h
@@ -187,6 +203,10 @@ async def get_ltp(exchange, tradingsymbol, symboltoken):
         try:
             response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
             data = response.json()
+            if check_token_status(data, response.status_code):
+                headers = get_headers()
+                response = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
+                data = response.json()
             if data.get("status") and data.get("data") and data["data"].get("fetched"):
                 # Use the first fetched item
                 price = float(data["data"]["fetched"][0]["ltp"])
@@ -260,10 +280,14 @@ async def get_nfo_quotes(ce_symbol, ce_token, pe_symbol, pe_token):
         
         url = "https://apiconnect.angelbroking.com/rest/secure/angelbroking/market/v1/quote/"
         payload = {"mode": "LTP", "exchangeTokens": {"NFO": [ce_token, pe_token]}}
-        
+        headers = get_headers()
         try:
-            res = await asyncio.to_thread(requests.post, url, json=payload, headers=get_headers(), timeout=10)
+            res = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
             data = res.json()
+            if check_token_status(data, res.status_code):
+                headers = get_headers()
+                res = await asyncio.to_thread(requests.post, url, json=payload, headers=headers, timeout=10)
+                data = res.json()
             if data.get("status") and data.get("data") and data["data"].get("fetched"):
                 for it in data["data"]["fetched"]:
                     sym, tok, p = it["tradingSymbol"], it["symbolToken"], float(it["ltp"])

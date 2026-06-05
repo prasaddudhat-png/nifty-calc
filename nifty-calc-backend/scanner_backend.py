@@ -209,6 +209,22 @@ async def login_angel_one():
         return False
 
 
+def check_token_status(data, status_code=200):
+    global auth_token
+    if status_code == 401:
+        print("[Auth] Token expired or invalid (HTTP 401). Clearing auth_token.")
+        auth_token = None
+        return True
+    if isinstance(data, dict):
+        # Gateway level auth token errors use camelCase "errorCode"
+        error_code = data.get("errorCode", "")
+        message = data.get("message", "")
+        if error_code == "AG8001" or message == "Invalid Token":
+            print(f"[Auth] Token expired or invalid ({error_code}: {message}). Clearing auth_token.")
+            auth_token = None
+            return True
+    return False
+
 async def get_headers():
     global auth_token, last_login_time
     if not auth_token or time.time() - last_login_time > 79200:
@@ -405,6 +421,9 @@ async def bulk_full_quote(exchange, tokens):
                         await asyncio.sleep(1.5 * (attempt + 1))
                         continue
                     data = response.json()
+                    if check_token_status(data, response.status_code):
+                        headers = await get_headers()
+                        continue
                     if data.get("status") and data.get("data") and "fetched" in data["data"]:
                         fetched = data["data"]["fetched"]
                         unfetched = data["data"].get("unfetched", [])
@@ -456,6 +475,9 @@ async def bulk_ltp_quote(exchange_tokens_dict):
                             await asyncio.sleep(1.5 * (attempt + 1))
                             continue
                         data = response.json()
+                        if check_token_status(data, response.status_code):
+                            headers = await get_headers()
+                            continue
                         if data.get("status") and data.get("data") and "fetched" in data["data"]:
                             fetched = data["data"]["fetched"]
                             unfetched = data["data"].get("unfetched", [])
