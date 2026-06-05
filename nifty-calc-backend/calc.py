@@ -2300,8 +2300,15 @@ async def handle_client_subscribe(ws: WebSocket, payload: dict):
             await resolve_and_subscribe_options(sub, 0.0)
             await send_box_update(ws, sub)
 
+ws_manager_started = False
+
 @app.websocket("/ws/live")
 async def websocket_live(websocket: WebSocket):
+    global ws_manager_started
+    if not ws_manager_started:
+        ws_manager.start(asyncio.get_running_loop())
+        ws_manager_started = True
+
     await websocket.accept()
     active_connections[websocket] = {}
     print(f"[WS] Client connected: {websocket.client}")
@@ -2322,13 +2329,11 @@ async def websocket_live(websocket: WebSocket):
 
 @app.on_event("startup")
 async def startup_event():
-    loop = asyncio.get_running_loop()
     import threading
     def background_fetch():
         login_angel_one()
         fetch_instrument_list()
         cleanup_old_ticks()
-        ws_manager.start(loop)
     threading.Thread(target=background_fetch, daemon=True).start()
 
 
