@@ -1062,6 +1062,12 @@
             const boxHistory = [[], [], []];                // chart history data
             const boxChartVisible = [true, true, true];     // chart visibility toggle
 
+            // WebSocket state
+            let liveSocket = null;
+            let wsReconnectTimer = null;
+            let wsReconnectDelay = 1000;
+
+
             // ─── LocalStorage Persistence Helpers ───
             // Key is symbol-only so multi-day data persists across page reloads
             function getChartKey(symbol) {
@@ -2673,10 +2679,7 @@
                     return;
                 }
 
-                // If same symbol already active, do nothing
-                if (boxSymbol[idx] === symbol && boxTimer[idx]) return;
-
-                // Stop existing poll
+                // Stop existing poll/sub
                 stopBox(idx);
 
                 // Fresh start on box configuration
@@ -2709,25 +2712,106 @@
 
                 renderTradeDetails(idx);
                 
-                // Hydrate chart from backend database, then run polling loop
+                const USE_WS = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                
+                // Hydrate chart from backend database, then run connection
                 loadTicksFromDB(symbol, idx).then(() => {
-                    runBoxLoop(idx);
+                    if (USE_WS) {
+                        sendSubscriptionRequest(idx);
+                    } else {
+                        pollBox(idx);
+                    }
                 });
             }
 
             function stopBox(idx) {
-                if (boxTimer[idx]) {
+                boxFetching[idx] = false;
+                if (boxTimer && boxTimer[idx]) {
                     clearTimeout(boxTimer[idx]);
                     boxTimer[idx] = null;
                 }
-                boxFetching[idx] = false;
             }
 
             function triggerFetch(idx) {
                 if (!boxSymbol[idx]) return;
-                stopBox(idx);
-                runBoxLoop(idx);
+                const USE_WS = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+                if (USE_WS) {
+                    sendSubscriptionRequest(idx);
+                } else {
+                    if (boxTimer && boxTimer[idx]) {
+                        clearTimeout(boxTimer[idx]);
+                        boxTimer[idx] = null;
+                    }
+                    pollBox(idx);
+                }
             }
+
+            async function pollBox(idx) {
+                if (!boxSymbol[idx] || !boxFetching[idx]) return;
+                try {
+                    const data = await fetchSymbolData(boxSymbol[idx], idx);
+                    if (data && data.success) {
+                        lastFetchData[idx] = data;
+                        displayBoxResult(idx, data);
+                        setBoxStatus(idx, 'live', data.symbol);
+                        
+                        const currentTime = Date.now();
+                        const diff = data.premium_discount;
+                        const now = new Date(currentTime);
+                        const timeInSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+                        
+                        if (timeInSec >= 33300 && timeInSec <= 55800) {
+                            boxHistory[idx].push({
+                                time: currentTime,
+                                spot: data.underlying,
+                                call: data.call_price,
+                                put: data.put_price,
+                                synthetic: data.synthetic_future,
+                                strike: data.strike,
+                                expiry: data.expiry,
+                                diff: parseFloat(diff.toFixed(2))
+                            });
+
+                            const expiry = data.expiry || 'unknown';
+                            if (boxActiveExpiry[idx] !== null && boxActiveExpiry[idx] !== expiry) {
+                                boxActiveExpiry[idx] = expiry;
+                                boxShowAllExpiries[idx] = false;
+                                updateShowAllBtn(idx);
+                                rebuildChartDatasets(idx);
+                            } else if (boxActiveExpiry[idx] === null) {
+                                boxActiveExpiry[idx] = expiry;
+                            }
+
+                            if (boxExpiryMap[idx][expiry] === undefined) {
+                                rebuildChartDatasets(idx);
+                            } else {
+                                const dsIdx = boxExpiryMap[idx][expiry];
+                                const dsData = boxChart[idx].data.datasets[dsIdx].data;
+                                const currentXVal = toMarketX(currentTime);
+                                if (dsData.length > 0) {
+                                    const prevXVal = dsData[dsData.length - 1].x;
+                                    const day1 = Math.floor(prevXVal / MKT_DURATION_MIN);
+                                    const day2 = Math.floor(currentXVal / MKT_DURATION_MIN);
+                                    if (day1 !== day2) {
+                                        dsData.push({ x: (prevXVal + currentXVal) / 2, y: null });
+                                    }
+                                }
+                                dsData.push({ x: currentXVal, y: parseFloat(diff.toFixed(2)), _realTime: currentTime });
+                                boxChart[idx].update();
+                            }
+                        }
+                    } else {
+                        setBoxStatus(idx, 'error', `Error: ${data ? data.error : 'Unknown'}`);
+                    }
+                } catch(e) {
+                    setBoxStatus(idx, 'error', `Exception: ${e.message}`);
+                }
+                
+                if (boxFetching[idx]) {
+                    boxTimer[idx] = setTimeout(() => pollBox(idx), 1000);
+                }
+            }
+
 
             // ─── Fetch Data for One Box ───
             async function fetchSymbolData(symbol, idx) {
@@ -2844,118 +2928,182 @@
             }
 
             // ─── Box Polling Loop ───
-            async function runBoxLoop(idx) {
+            // ─── WebSocket connection management ───
+            function connectLiveWebSocket() {
+                if (liveSocket && (liveSocket.readyState === WebSocket.CONNECTING || liveSocket.readyState === WebSocket.OPEN)) {
+                    return;
+                }
+                
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsHost = isDev ? `${host}:8000` : window.location.host;
+                const wsUrl = `${wsProtocol}//${wsHost}/ws/live`;
+                
+                console.log(`[WS] Connecting to ${wsUrl}...`);
+                setGlobalStatus('connecting', 'Connecting...');
+                
+                liveSocket = new WebSocket(wsUrl);
+                
+                liveSocket.onopen = () => {
+                    console.log('[WS] Connected to backend live data stream.');
+                    setGlobalStatus('idle', 'Ready');
+                    wsReconnectDelay = 1000;
+                    if (wsReconnectTimer) {
+                        clearTimeout(wsReconnectTimer);
+                        wsReconnectTimer = null;
+                    }
+                    // Resubscribe all active boxes
+                    for (let idx = 0; idx < NUM_BOXES; idx++) {
+                        sendSubscriptionRequest(idx);
+                    }
+                };
+                
+                liveSocket.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        if (msg.type === 'update') {
+                            const idx = msg.box;
+                            const data = msg.data;
+                            if (data.success && boxSymbol[idx] === data.symbol) {
+                                lastFetchData[idx] = data; // Save for Live Tracker
+                                displayBoxResult(idx, data);
+                                setBoxStatus(idx, 'live', data.symbol);
+                                
+                                // Update chart
+                                const currentTime = Date.now();
+                                const diff = data.premium_discount;
+                                
+                                const now = new Date(currentTime);
+                                const hh = now.getHours();
+                                const mm = now.getMinutes();
+                                const ss = now.getSeconds();
+                                const timeInSec = hh * 3600 + mm * 60 + ss;
+                                // 09:15:00 = 33300 sec, 15:30:00 = 55800 sec
+                                if (timeInSec >= 33300 && timeInSec <= 55800) {
+                                    // Add to history
+                                    boxHistory[idx].push({
+                                        time: currentTime,
+                                        spot: data.underlying,
+                                        call: data.call_price,
+                                        put: data.put_price,
+                                        synthetic: data.synthetic_future,
+                                        strike: data.strike,
+                                        expiry: data.expiry,
+                                        diff: parseFloat(diff.toFixed(2))
+                                    });
+
+                                    // Route to correct expiry dataset
+                                    const expiry = data.expiry || 'unknown';
+
+                                    // Detect expiry change — switch chart view to new expiry
+                                    if (boxActiveExpiry[idx] !== null && boxActiveExpiry[idx] !== expiry) {
+                                        boxActiveExpiry[idx] = expiry;
+                                        boxShowAllExpiries[idx] = false;
+                                        updateShowAllBtn(idx);
+                                        rebuildChartDatasets(idx);
+                                    } else if (boxActiveExpiry[idx] === null) {
+                                        boxActiveExpiry[idx] = expiry;
+                                    }
+
+                                    if (boxExpiryMap[idx][expiry] === undefined) {
+                                        // New expiry detected — rebuild chart datasets
+                                        rebuildChartDatasets(idx);
+                                    } else {
+                                        const dsIdx = boxExpiryMap[idx][expiry];
+                                        const dsData = boxChart[idx].data.datasets[dsIdx].data;
+                                        const currentXVal = toMarketX(currentTime);
+                                        if (dsData.length > 0) {
+                                            const prevPt = dsData[dsData.length - 1];
+                                            const prevXVal = prevPt.x;
+                                            // Filter out existing null points to get the last valid coordinates
+                                            let lastValidX = prevXVal;
+                                            for (let k = dsData.length - 1; k >= 0; k--) {
+                                                if (dsData[k].y !== null) {
+                                                    lastValidX = dsData[k].x;
+                                                    break;
+                                                }
+                                            }
+                                            const day1 = Math.floor(lastValidX / MKT_DURATION_MIN);
+                                            const day2 = Math.floor(currentXVal / MKT_DURATION_MIN);
+                                            if (day1 !== day2) {
+                                                // Day boundary detected! Insert a null point to break the line.
+                                                dsData.push({ x: (lastValidX + currentXVal) / 2, y: null });
+                                            }
+                                        }
+                                        dsData.push({ x: currentXVal, y: parseFloat(diff.toFixed(2)), _realTime: currentTime });
+                                        boxChart[idx].update();
+                                    }
+
+                                    // Auto-save to localStorage every 10 points
+                                    if (boxHistory[idx].length % 10 === 0) saveBoxData(idx);
+                                }
+
+                                // Update global clock
+                                lastUpdateTime.innerText = new Date(currentTime).toLocaleTimeString();
+                                updateGlobalStatus();
+                            }
+                        } else if (msg.type === 'error') {
+                            setBoxStatus(msg.box, 'error', msg.message);
+                        }
+                    } catch (e) {
+                        console.error('[WS] Error handling message:', e);
+                    }
+                };
+                
+                liveSocket.onclose = () => {
+                    console.log('[WS] Connection closed.');
+                    setGlobalStatus('offline', 'Disconnected');
+                    // Set all active boxes to disconnected
+                    for (let idx = 0; idx < NUM_BOXES; idx++) {
+                        if (boxSymbol[idx]) {
+                            setBoxStatus(idx, 'error', 'Disconnected from server');
+                        }
+                    }
+                    // Trigger reconnect
+                    if (!wsReconnectTimer) {
+                        wsReconnectTimer = setTimeout(() => {
+                            wsReconnectTimer = null;
+                            wsReconnectDelay = Math.min(wsReconnectDelay * 1.5, 30000);
+                            connectLiveWebSocket();
+                        }, wsReconnectDelay);
+                    }
+                };
+                
+                liveSocket.onerror = (err) => {
+                    console.error('[WS] Socket error:', err);
+                    liveSocket.close();
+                };
+            }
+
+            function sendSubscriptionRequest(idx) {
                 const symbol = boxSymbol[idx];
                 if (!symbol) return;
-                if (boxFetching[idx]) return;
-
-                boxFetching[idx] = true;
-                const startTime = Date.now();
-
-                try {
-                    const data = await fetchSymbolData(symbol, idx);
-                    const currentTime = Date.now();
-                    if (data.success) {
-                        lastFetchData[idx] = data; // Save for Live Tracker
-                        displayBoxResult(idx, data);
-                        setBoxStatus(idx, 'live', symbol);
-
-                        // Update chart
-                        const diff = data.premium_discount;
-                        
-                        const now = new Date(currentTime);
-                        const hh = now.getHours();
-                        const mm = now.getMinutes();
-                        const ss = now.getSeconds();
-                        const timeInSec = hh * 3600 + mm * 60 + ss;
-                        // 09:15:00 = 33300 sec, 15:30:00 = 55800 sec
-                        if (timeInSec >= 33300 && timeInSec <= 55800) {
-                            // Add to history
-                            boxHistory[idx].push({
-                                time: currentTime,
-                                spot: data.underlying,
-                                call: data.call_price,
-                                put: data.put_price,
-                                synthetic: data.synthetic_future,
-                                strike: data.strike,
-                                expiry: data.expiry,
-                                diff: parseFloat(diff.toFixed(2))
-                            });
-
-                            // Route to correct expiry dataset
-                            const expiry = data.expiry || 'unknown';
-
-                            // Detect expiry change — switch chart view to new expiry
-                            if (boxActiveExpiry[idx] !== null && boxActiveExpiry[idx] !== expiry) {
-                                boxActiveExpiry[idx] = expiry;
-                                boxShowAllExpiries[idx] = false;
-                                updateShowAllBtn(idx);
-                                rebuildChartDatasets(idx);
-                            } else if (boxActiveExpiry[idx] === null) {
-                                boxActiveExpiry[idx] = expiry;
-                            }
-
-                            if (boxExpiryMap[idx][expiry] === undefined) {
-                                // New expiry detected — rebuild chart datasets
-                                rebuildChartDatasets(idx);
-                            } else {
-                                const dsIdx = boxExpiryMap[idx][expiry];
-                                const dsData = boxChart[idx].data.datasets[dsIdx].data;
-                                const currentXVal = toMarketX(currentTime);
-                                if (dsData.length > 0) {
-                                    const prevPt = dsData[dsData.length - 1];
-                                    const prevXVal = prevPt.x;
-                                    // Filter out existing null points to get the last valid coordinates
-                                    let lastValidX = prevXVal;
-                                    for (let k = dsData.length - 1; k >= 0; k--) {
-                                        if (dsData[k].y !== null) {
-                                            lastValidX = dsData[k].x;
-                                            break;
-                                        }
-                                    }
-                                    const day1 = Math.floor(lastValidX / MKT_DURATION_MIN);
-                                    const day2 = Math.floor(currentXVal / MKT_DURATION_MIN);
-                                    if (day1 !== day2) {
-                                        // Day boundary detected! Insert a null point to break the line.
-                                        dsData.push({ x: (lastValidX + currentXVal) / 2, y: null });
-                                    }
-                                }
-                                dsData.push({ x: currentXVal, y: parseFloat(diff.toFixed(2)), _realTime: currentTime });
-                                boxChart[idx].update();
-                            }
-
-                            // Auto-save to localStorage every 10 points
-                            if (boxHistory[idx].length % 10 === 0) saveBoxData(idx);
-                        }
-
-                        // Update global clock
-                        lastUpdateTime.innerText = new Date(currentTime).toLocaleTimeString();
-                        updateGlobalStatus();
-                    } else {
-                        setBoxStatus(idx, 'error', data.error || 'Failed');
-                    }
-                } catch (err) {
-                    setBoxStatus(idx, 'error', err.message || 'Network error');
-                } finally {
-                    boxFetching[idx] = false;
-                    // Schedule next poll only if this symbol is still active
-                    // Stagger boxes: box0 at +0ms, box1 at +1000ms, box2 at +2000ms
-                    if (boxSymbol[idx] === symbol) {
-                        const elapsed = Date.now() - startTime;
-                        const baseInterval = 3000; // 3s per box
-                        const stagger = idx * 1000; // offset per box to avoid concurrent calls
-                        const delay = Math.max(100, baseInterval - elapsed + stagger);
-                        boxTimer[idx] = setTimeout(() => runBoxLoop(idx), delay);
-                    }
+                
+                if (!liveSocket || liveSocket.readyState !== WebSocket.OPEN) {
+                    setBoxStatus(idx, 'loading', `Waiting for server connection...`);
+                    return;
                 }
+                
+                const staticStrike = el(`strikeInput${idx}`).value;
+                const selectedExpiry = el(`expirySelect${idx}`) ? el(`expirySelect${idx}`).value : null;
+                
+                const payload = {
+                    action: "subscribe",
+                    box: idx,
+                    symbol: symbol,
+                    strike: staticStrike ? parseFloat(staticStrike) : null,
+                    expiry: selectedExpiry || null
+                };
+                
+                console.log(`[WS] Subscribing box ${idx} to ${symbol}`, payload);
+                liveSocket.send(JSON.stringify(payload));
+                setBoxStatus(idx, 'loading', `Subscribing ${symbol}...`);
             }
 
             // ─── Update Global Status Dot ───
             function updateGlobalStatus() {
-                const activeBoxes = boxSymbol.filter(s => s !== null).length;
                 const liveBoxes = [];
                 for (let i = 0; i < NUM_BOXES; i++) {
-                    if (boxSymbol[i] && boxTimer[i]) liveBoxes.push(boxSymbol[i]);
+                    if (boxSymbol[i]) liveBoxes.push(boxSymbol[i]);
                 }
                 if (liveBoxes.length > 0) {
                     setGlobalStatus('live', `Live: ${liveBoxes.join(', ')}`);
@@ -2963,6 +3111,7 @@
                     setGlobalStatus('idle', 'Ready');
                 }
             }
+
 
             // ─── Chart Toggle ───
             function toggleChart(idx) {
@@ -3325,6 +3474,10 @@
 
             // ─── Initialize ───
             initCharts();
+            const USE_WEBSOCKETS_GLOBAL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+            if (USE_WEBSOCKETS_GLOBAL) {
+                connectLiveWebSocket();
+            }
             lastUpdateTime.innerText = "Ready";
 
             // Auto-start Box 1 with NIFTY
