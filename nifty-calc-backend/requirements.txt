@@ -4,3 +4,7 @@ requests
 pyotp
 httpx
 aiofiles
+
+smartapi-python==1.5.5
+websocket-client==1.9.0
+websockets==16.0
