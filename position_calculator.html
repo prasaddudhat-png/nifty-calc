@@ -51,9 +51,14 @@
     <div class="app-container">
         <!-- Header -->
         <div class="top-bar flex-col md:flex-row gap-4 items-start md:items-center">
-            <div>
-                <h1 class="text-2xl font-bold tracking-tight">Position Entry/Exit Calculator 🧮</h1>
-                <p class="data-label text-xs mt-1">Model Synthetic Futures and P/L based on Entry & Exit data.</p>
+            <div class="flex items-center gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">Position Entry/Exit Calculator 🧮</h1>
+                    <p class="data-label text-xs mt-1">Model Synthetic Futures and P/L based on Entry & Exit data.</p>
+                </div>
+                <span class="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-semibold">
+                    <i class="ph ph-user"></i> Active User: <strong id="activeUserLabel">PRA</strong>
+                </span>
             </div>
             <div class="flex gap-3 items-center flex-wrap">
                 <a href="index.html" class="flex gap-2 items-center bg-[rgba(52,211,153,0.1)] hover:bg-[rgba(52,211,153,0.2)] border border-[#2d2640] text-emerald-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
@@ -86,6 +91,17 @@
                     <h2 class="text-xl font-bold">Trade Setup</h2>
                 </div>
                 
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group">
+                        <label class="data-label">Symbol</label>
+                        <input type="text" id="symbol" class="input-field" value="NIFTY" oninput="calculate()">
+                    </div>
+                    <div class="input-group">
+                        <label class="data-label">Expiry Date</label>
+                        <input type="text" id="expiry" class="input-field" placeholder="e.g. 11JUN2026" oninput="calculate()">
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4 mb-4">
                     <div class="input-group">
                         <label class="data-label">Instrument Strike</label>
@@ -253,6 +269,16 @@
                             <span class="text-sm font-semibold text-gray-200">Points Gained from P/D:</span>
                             <span class="font-bold font-mono tracking-tight" id="resPDPoints">0.00</span>
                         </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="pt-4 border-t border-[#2d2640] space-y-3">
+                        <button onclick="saveToTradeHistory()" class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-2.5 px-4 rounded-xl transition shadow-lg shadow-emerald-950/20 border border-emerald-500/30">
+                            <i class="ph ph-floppy-disk"></i> Export to Trade History
+                        </button>
+                        <button onclick="exportToCSV()" class="w-full flex items-center justify-center gap-2 bg-[#231b2e] hover:bg-[#2d2640] border border-[#3b324c] text-white font-semibold py-2.5 px-4 rounded-xl transition">
+                            <i class="ph ph-file-csv"></i> Export Position to Excel (CSV)
+                        </button>
                     </div>
                 </div>
             </div>
@@ -482,11 +508,215 @@
             }
         }
 
+        // Save to Database and LocalStorage
+        function saveToTradeHistory() {
+            const symbol = document.getElementById('symbol').value.trim().toUpperCase() || 'NIFTY';
+            const expiry = document.getElementById('expiry').value.trim().toUpperCase() || '';
+            const strike = getVal('strike');
+            const lotSize = getVal('lotSize');
+            const numLots = getVal('numLots');
+            const qty = lotSize * numLots;
+            
+            const entrySpot = getVal('entrySpot');
+            const entryCall = getVal('entryCall');
+            const entryPut = getVal('entryPut');
+            
+            const exitSpot = getVal('exitSpot');
+            const exitCall = getVal('exitCall');
+            const exitPut = getVal('exitPut');
+            
+            if (!strike) {
+                alert("Please specify a strike price.");
+                return;
+            }
+            if (!entryCall || !entryPut) {
+                alert("Please specify entry call and put prices.");
+                return;
+            }
+            
+            const entrySynth = strike + entryCall - entryPut;
+            const entryPD = entrySpot ? (entrySynth - entrySpot) : 0;
+            
+            let exitSynth = 0;
+            let exitPD = 0;
+            if (exitCall && exitPut) {
+                exitSynth = strike + exitCall - exitPut;
+                if (exitSpot) {
+                    exitPD = exitSynth - exitSpot;
+                }
+            }
+            
+            let callPnL = 0;
+            let putPnL = 0;
+            let spotPnL = 0;
+            if (currentDirection === 'long') {
+                callPnL = (exitCall - entryCall) * qty;
+                putPnL = (entryPut - exitPut) * qty;
+                spotPnL = entrySpot ? ((entrySpot - exitSpot) * qty) : 0;
+            } else {
+                callPnL = (entryCall - exitCall) * qty;
+                putPnL = (exitPut - entryPut) * qty;
+                spotPnL = entrySpot ? ((exitSpot - entrySpot) * qty) : 0;
+            }
+            const netPnL = (exitCall && exitPut) ? (callPnL + putPnL + spotPnL) : 0;
+            
+            const host = window.location.hostname || 'localhost';
+            const protocol = window.location.protocol;
+            const port = window.location.port;
+            const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+            const _tradeApiBase = isDev ? `http://${host}:8000` : '';
+            
+            const currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
+            
+            const newTrade = {
+                id: Date.now(),
+                status: (exitSpot && exitCall && exitPut) ? 'closed' : 'active',
+                entryDate: new Date().toISOString().split('T')[0],
+                entryTime: new Date().toTimeString().split(' ')[0],
+                exitDate: (exitSpot && exitCall && exitPut) ? new Date().toISOString().split('T')[0] : '',
+                exitTime: (exitSpot && exitCall && exitPut) ? new Date().toTimeString().split(' ')[0] : '',
+                symbol: symbol,
+                direction: currentDirection,
+                strike: strike,
+                lots: numLots,
+                qty: qty,
+                entrySpot: entrySpot || null,
+                entryCall: entryCall,
+                entryPut: entryPut,
+                entryPD: entryPD,
+                expiry: expiry,
+                exitSpot: exitSpot || null,
+                exitCall: exitCall || null,
+                exitPut: exitPut || null,
+                finalPnL: netPnL,
+                exitId: null,
+                user: currentUser
+            };
+            
+            // 1. Save to LocalStorage
+            let localTrades = [];
+            try {
+                const data = localStorage.getItem('autocalc_tradebook_' + currentUser);
+                if (data) localTrades = JSON.parse(data);
+            } catch (e) {
+                console.error("Error reading localStorage:", e);
+            }
+            localTrades.push(newTrade);
+            localStorage.setItem('autocalc_tradebook_' + currentUser, JSON.stringify(localTrades));
+            
+            // 2. Post to Server
+            fetch(`${_tradeApiBase}/api/trades?user=${encodeURIComponent(currentUser)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trades: [newTrade], user: currentUser })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Position successfully exported and saved to Trade History!");
+                } else {
+                    console.error("Server save failed", data);
+                    alert("Saved locally but failed to sync to server database.");
+                }
+            })
+            .catch(err => {
+                console.error("Error posting trade:", err);
+                alert("Saved locally but server was offline.");
+            });
+        }
+
+        // Export Position to CSV
+        function exportToCSV() {
+            const symbol = document.getElementById('symbol').value.trim().toUpperCase() || 'NIFTY';
+            const expiry = document.getElementById('expiry').value.trim().toUpperCase() || '';
+            const strike = getVal('strike');
+            const lotSize = getVal('lotSize');
+            const numLots = getVal('numLots');
+            const qty = lotSize * numLots;
+            
+            const entrySpot = getVal('entrySpot');
+            const entryCall = getVal('entryCall');
+            const entryPut = getVal('entryPut');
+            
+            const exitSpot = getVal('exitSpot');
+            const exitCall = getVal('exitCall');
+            const exitPut = getVal('exitPut');
+            
+            const entrySynth = strike + entryCall - entryPut;
+            const entryPD = entrySpot ? (entrySynth - entrySpot) : 0;
+            
+            let exitSynth = 0;
+            let exitPD = 0;
+            if (exitCall && exitPut) {
+                exitSynth = strike + exitCall - exitPut;
+                if (exitSpot) {
+                    exitPD = exitSynth - exitSpot;
+                }
+            }
+            
+            let callPnL = 0;
+            let putPnL = 0;
+            let spotPnL = 0;
+            if (currentDirection === 'long') {
+                callPnL = (exitCall - entryCall) * qty;
+                putPnL = (entryPut - exitPut) * qty;
+                spotPnL = entrySpot ? ((entrySpot - exitSpot) * qty) : 0;
+            } else {
+                callPnL = (entryCall - exitCall) * qty;
+                putPnL = (exitPut - entryPut) * qty;
+                spotPnL = entrySpot ? ((exitSpot - entrySpot) * qty) : 0;
+            }
+            const netPnL = (exitCall && exitPut) ? (callPnL + putPnL + spotPnL) : 0;
+            
+            const rows = [
+                ["Parameter", "Value"],
+                ["Date", new Date().toLocaleDateString()],
+                ["User", localStorage.getItem('autocalc_current_user') || 'pra'],
+                ["Symbol", symbol],
+                ["Expiry", expiry],
+                ["Strike", strike],
+                ["Direction", currentDirection === 'long' ? 'Long Synthetic' : 'Short Synthetic'],
+                ["Lot Size", lotSize],
+                ["Lots", numLots],
+                ["Total Qty", qty],
+                ["Entry Spot", entrySpot],
+                ["Entry Call", entryCall],
+                ["Entry Put", entryPut],
+                ["Entry Synthetic Future", entrySynth.toFixed(2)],
+                ["Entry Premium/Discount", entryPD.toFixed(2)],
+                ["Exit Spot", exitSpot || '-'],
+                ["Exit Call", exitCall || '-'],
+                ["Exit Put", exitPut || '-'],
+                ["Exit Synthetic Future", exitSynth ? exitSynth.toFixed(2) : '-'],
+                ["Exit Premium/Discount", exitSynth ? exitPD.toFixed(2) : '-'],
+                ["Call P/L", exitCall ? callPnL.toFixed(2) : '-'],
+                ["Put P/L", exitPut ? putPnL.toFixed(2) : '-'],
+                ["Spot P/L", exitSpot ? spotPnL.toFixed(2) : '-'],
+                ["Net P/L", exitCall && exitPut && exitSpot ? netPnL.toFixed(2) : '-'],
+                ["P/D Shift", exitSynth ? (exitPD - entryPD).toFixed(2) : '-']
+            ];
+            
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + rows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+                
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `position_calc_${symbol}_${strike}_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
         // Initialize display
         calculate();
 
         // Parse URL params for auto-fill
         window.addEventListener('DOMContentLoaded', () => {
+            const currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
+            const userLabel = document.getElementById('activeUserLabel');
+            if (userLabel) userLabel.innerText = currentUser.toUpperCase();
+
             const params = new URLSearchParams(window.location.search);
             
             if (params.has('direction')) {
