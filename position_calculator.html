@@ -128,22 +128,8 @@
                 </div>
 
                 <div class="input-group">
-                    <div class="flex justify-between items-center">
-                        <label class="data-label">Expenses (₹)</label>
-                        <label class="flex items-center gap-1 text-xs text-indigo-400 cursor-pointer font-semibold select-none">
-                            <input type="checkbox" id="autoExpenses" class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked onchange="toggleAutoExpenses()">
-                            Auto-Estimate Charges
-                        </label>
-                    </div>
-                    <input type="number" step="0.1" id="expenses" class="input-field bg-gray-900/50 text-gray-400" value="0" placeholder="e.g. 100" oninput="calculate()" readonly>
-                </div>
-                
-                <div id="expensesBreakdown" class="mt-2 text-[10px] text-gray-500 bg-gray-900/30 p-2.5 rounded-lg border border-[#3b324c]/50 hidden">
-                    <div class="flex justify-between mb-0.5"><span>Brokerage (flat ₹20/order):</span><span id="chkBrokerage" class="font-mono">₹ 0.00</span></div>
-                    <div class="flex justify-between mb-0.5"><span>STT (Govt Tax):</span><span id="chkSTT" class="font-mono text-rose-400/80">₹ 0.00</span></div>
-                    <div class="flex justify-between mb-0.5"><span>Exchange Transaction Charges:</span><span id="chkExchange" class="font-mono">₹ 0.00</span></div>
-                    <div class="flex justify-between mb-0.5"><span>GST (18% of Brok+Exch):</span><span id="chkGST" class="font-mono">₹ 0.00</span></div>
-                    <div class="flex justify-between"><span>SEBI & Stamp Duty:</span><span id="chkStamp" class="font-mono">₹ 0.00</span></div>
+                    <label class="data-label">Expenses (Brokerage, taxes, etc. in ₹)</label>
+                    <input type="number" step="1" id="expenses" class="input-field" value="0" placeholder="e.g. 100" oninput="calculate()">
                 </div>
                 
                 <div class="mt-6 p-4 rounded-lg bg-[#231b2e] border border-[#3b324c] text-sm text-gray-400">
@@ -367,102 +353,7 @@
             if (val === 0) el.style.color = '#8b85a1'; else el.style.color = '';
         }
 
-        function toggleAutoExpenses() {
-            const autoChk = document.getElementById('autoExpenses').checked;
-            const expInput = document.getElementById('expenses');
-            if (autoChk) {
-                expInput.readOnly = true;
-                expInput.classList.add('bg-gray-900/50', 'text-gray-400');
-            } else {
-                expInput.readOnly = false;
-                expInput.classList.remove('bg-gray-900/50', 'text-gray-400');
-            }
-            calculate();
-        }
 
-        function estimateCharges() {
-            const strike = getVal('strike');
-            const lotSize = getVal('lotSize');
-            const numLots = getVal('numLots');
-            const qty = lotSize * numLots;
-            
-            const entrySpot = getVal('entrySpot');
-            const entryCall = getVal('entryCall');
-            const entryPut = getVal('entryPut');
-            
-            const exitSpot = getVal('exitSpot');
-            const exitCall = getVal('exitCall');
-            const exitPut = getVal('exitPut');
-            
-            if (qty <= 0) return 0;
-            
-            const hasExit = exitCall > 0 && exitPut > 0;
-            const numOrders = hasExit ? 6 : 3;
-            const brokerage = numOrders * 20;
-            
-            const entryCEVal = entryCall * qty;
-            const entryPEVal = entryPut * qty;
-            const exitCEVal = exitCall * qty;
-            const exitPEVal = exitPut * qty;
-            
-            const entrySpotVal = entrySpot * qty;
-            const exitSpotVal = exitSpot * qty;
-            
-            let stt = 0;
-            let exchangeCharges = 0;
-            let stampDuty = 0;
-            let sebiCharges = 0;
-            
-            if (currentDirection === 'long') {
-                stt += 0.000625 * entryPEVal;
-                if (hasExit) {
-                    stt += 0.000625 * exitCEVal;
-                }
-                stt += 0.000125 * entrySpotVal;
-                
-                let optTurnover = entryCEVal + entryPEVal;
-                if (hasExit) optTurnover += exitCEVal + exitPEVal;
-                exchangeCharges += 0.00053 * optTurnover;
-                
-                let futTurnover = entrySpotVal;
-                if (exitSpotVal > 0) futTurnover += exitSpotVal;
-                exchangeCharges += 0.000019 * futTurnover;
-                
-                stampDuty += 0.00003 * entryCEVal;
-                if (hasExit) stampDuty += 0.00003 * exitPEVal;
-                if (exitSpotVal > 0) {
-                    stampDuty += 0.00002 * exitSpotVal;
-                }
-            } else {
-                stt += 0.000625 * entryCEVal;
-                if (hasExit) {
-                    stt += 0.000625 * exitPEVal;
-                }
-                if (exitSpotVal > 0) {
-                    stt += 0.000125 * exitSpotVal;
-                }
-                
-                let optTurnover = entryCEVal + entryPEVal;
-                if (hasExit) optTurnover += exitCEVal + exitPEVal;
-                exchangeCharges += 0.00053 * optTurnover;
-                
-                let futTurnover = entrySpotVal;
-                if (exitSpotVal > 0) futTurnover += exitSpotVal;
-                exchangeCharges += 0.000019 * futTurnover;
-                
-                stampDuty += 0.00003 * entryPEVal;
-                if (hasExit) stampDuty += 0.00003 * exitCEVal;
-                stampDuty += 0.00002 * entrySpotVal;
-            }
-            
-            let totalTurnover = entryCEVal + entryPEVal + entrySpotVal;
-            if (hasExit) totalTurnover += exitCEVal + exitPEVal + exitSpotVal;
-            sebiCharges = 0.000001 * totalTurnover;
-            
-            const gst = 0.18 * (brokerage + exchangeCharges);
-            const totalCharges = brokerage + stt + exchangeCharges + gst + sebiCharges + stampDuty;
-            return totalCharges;
-        }
 
         function calculate() {
             // Inputs
@@ -602,90 +493,7 @@
             const elNetPnL = document.getElementById('resNetPnL');
             const elGrossPnL = document.getElementById('resGrossPnL');
             const elExpenses = document.getElementById('resExpenses');
-            
-            const autoChk = document.getElementById('autoExpenses').checked;
-            const expInput = document.getElementById('expenses');
-            let expenses = 0;
-            
-            if (autoChk) {
-                expenses = estimateCharges();
-                expInput.value = expenses.toFixed(2);
-                
-                document.getElementById('expensesBreakdown').classList.remove('hidden');
-                
-                // Update live breakdown labels
-                const strike = getVal('strike');
-                const lotSize = getVal('lotSize');
-                const numLots = getVal('numLots');
-                const qty = lotSize * numLots;
-                const entrySpot = getVal('entrySpot');
-                const entryCall = getVal('entryCall');
-                const entryPut = getVal('entryPut');
-                const exitSpot = getVal('exitSpot');
-                const exitCall = getVal('exitCall');
-                const exitPut = getVal('exitPut');
-                const hasExit = exitCall > 0 && exitPut > 0;
-                
-                const brokerage = (hasExit ? 6 : 3) * 20;
-                const entryCEVal = entryCall * qty;
-                const entryPEVal = entryPut * qty;
-                const exitCEVal = exitCall * qty;
-                const exitPEVal = exitPut * qty;
-                const entrySpotVal = entrySpot * qty;
-                const exitSpotVal = exitSpot * qty;
-                
-                let stt = 0;
-                let exchangeCharges = 0;
-                let stampDuty = 0;
-                let sebiCharges = 0;
-                
-                if (currentDirection === 'long') {
-                    stt += 0.000625 * entryPEVal;
-                    if (hasExit) stt += 0.000625 * exitCEVal;
-                    stt += 0.000125 * entrySpotVal;
-                    
-                    let optTurnover = entryCEVal + entryPEVal;
-                    if (hasExit) optTurnover += exitCEVal + exitPEVal;
-                    exchangeCharges += 0.00053 * optTurnover;
-                    
-                    let futTurnover = entrySpotVal;
-                    if (exitSpotVal > 0) futTurnover += exitSpotVal;
-                    exchangeCharges += 0.000019 * futTurnover;
-                    
-                    stampDuty += 0.00003 * entryCEVal;
-                    if (hasExit) stampDuty += 0.00003 * exitPEVal;
-                    if (exitSpotVal > 0) stampDuty += 0.00002 * exitSpotVal;
-                } else {
-                    stt += 0.000625 * entryCEVal;
-                    if (hasExit) stt += 0.000625 * exitPEVal;
-                    if (exitSpotVal > 0) stt += 0.000125 * exitSpotVal;
-                    
-                    let optTurnover = entryCEVal + entryPEVal;
-                    if (hasExit) optTurnover += exitCEVal + exitPEVal;
-                    exchangeCharges += 0.00053 * optTurnover;
-                    
-                    let futTurnover = entrySpotVal;
-                    if (exitSpotVal > 0) futTurnover += exitSpotVal;
-                    exchangeCharges += 0.000019 * futTurnover;
-                    
-                    stampDuty += 0.00003 * entryPEVal;
-                    if (hasExit) stampDuty += 0.00003 * exitCEVal;
-                    stampDuty += 0.00002 * entrySpotVal;
-                }
-                let totalTurnover = entryCEVal + entryPEVal + entrySpotVal;
-                if (hasExit) totalTurnover += exitCEVal + exitPEVal + exitSpotVal;
-                sebiCharges = 0.000001 * totalTurnover;
-                const gst = 0.18 * (brokerage + exchangeCharges);
-                
-                document.getElementById('chkBrokerage').innerText = `₹ ${brokerage.toFixed(2)}`;
-                document.getElementById('chkSTT').innerText = `₹ ${stt.toFixed(2)}`;
-                document.getElementById('chkExchange').innerText = `₹ ${exchangeCharges.toFixed(2)}`;
-                document.getElementById('chkGST').innerText = `₹ ${gst.toFixed(2)}`;
-                document.getElementById('chkStamp').innerText = `₹ ${(stampDuty + sebiCharges).toFixed(2)}`;
-            } else {
-                expenses = getVal('expenses');
-                document.getElementById('expensesBreakdown').classList.add('hidden');
-            }
+            const expenses = getVal('expenses');
             
             const grossPnL = totalOptionsPnL + spotPnL;
             const netPnL = grossPnL - expenses;
