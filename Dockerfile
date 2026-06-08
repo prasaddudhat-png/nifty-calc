@@ -17,4 +17,5 @@ WORKDIR /app/nifty-calc-backend
 EXPOSE 8000
 
 # Run uvicorn server (which serves both backend endpoints and frontend HTML)
-CMD ["uvicorn", "calc:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "uvicorn calc:app --host 0.0.0.0 --port ${PORT:-8000}"]
+

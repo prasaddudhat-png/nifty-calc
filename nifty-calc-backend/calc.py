@@ -50,31 +50,31 @@ def load_credentials():
         "DELETE_PASSWORD": "7890"
     }
     
+    # Load from file first if it exists
+    config = default_config.copy()
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-            API_KEY = config.get("API_KEY", default_config["API_KEY"])
-            CLIENT_CODE = config.get("CLIENT_CODE", default_config["CLIENT_CODE"])
-            PIN = str(config.get("PIN", default_config["PIN"]))
-            TOTP_SECRET = config.get("TOTP_SECRET", default_config["TOTP_SECRET"])
-            DELETE_PASSWORD = str(config.get("DELETE_PASSWORD", default_config["DELETE_PASSWORD"]))
-            return config
+                file_config = json.load(f)
+            config.update(file_config)
         except Exception as e:
             print(f"Error reading {CONFIG_FILE}: {e}")
-    
-    # Create file if missing
-    try:
-        with open(CONFIG_FILE, 'w') as f:
-            json.dump(default_config, f, indent=4)
-    except Exception as e:
-        print(f"Error creating {CONFIG_FILE}: {e}")
-        
-    API_KEY = default_config["API_KEY"]
-    CLIENT_CODE = default_config["CLIENT_CODE"]
-    PIN = default_config["PIN"]
-    TOTP_SECRET = default_config["TOTP_SECRET"]
-    return default_config
+    else:
+        # Create file if missing
+        try:
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(default_config, f, indent=4)
+        except Exception as e:
+            print(f"Error creating {CONFIG_FILE}: {e}")
+            
+    # Environment variables take precedence (useful for cloud deploys like Railway)
+    API_KEY = os.environ.get("API_KEY", config["API_KEY"])
+    CLIENT_CODE = os.environ.get("CLIENT_CODE", config["CLIENT_CODE"])
+    PIN = str(os.environ.get("PIN", config["PIN"]))
+    TOTP_SECRET = os.environ.get("TOTP_SECRET", config["TOTP_SECRET"])
+    DELETE_PASSWORD = str(os.environ.get("DELETE_PASSWORD", config["DELETE_PASSWORD"]))
+    return config
+
 
 def save_credentials(config):
     global API_KEY, CLIENT_CODE, PIN, TOTP_SECRET, DELETE_PASSWORD
