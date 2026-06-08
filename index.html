@@ -2144,7 +2144,24 @@
                         : `<span class="text-gray-500">${entryDateStr}</span> ${t.entryTime} → ${t.exitTime}`;
                     const entryPDVal = t.entryPD !== undefined ? t.entryPD : (t.entryCall - t.entryPut);
                     const entryPDStr = entryPDVal > 0 ? `+${entryPDVal.toFixed(2)}` : entryPDVal.toFixed(2);
-                    const entryStr = `${t.entrySpot.toFixed(1)} / ${t.entryCall.toFixed(1)} / ${t.entryPut.toFixed(1)} <span class="text-white bg-white/10 px-1.5 rounded ml-1 text-xs font-bold">P/D: ${entryPDStr}</span>`;
+                    
+                    // Option Premium Cash Flow vs Spot Value Cash Flow details
+                    let netPrem = 0;
+                    if (t.direction.toLowerCase() === 'long' || t.direction.toUpperCase() === 'LONG') {
+                        netPrem = (t.entryCall - t.entryPut) * t.qty;
+                    } else {
+                        netPrem = (t.entryPut - t.entryCall) * t.qty;
+                    }
+                    const premType = netPrem > 0 ? "Debit" : "Credit";
+                    const premAmt = Math.abs(netPrem);
+                    const spotVal = t.entrySpot * t.qty;
+                    
+                    const cashFlowStr = `<div class="text-[10px] text-gray-500 mt-0.5 font-medium">
+                        Net Prem: <span class="${netPrem > 0 ? 'text-red-400/80' : 'text-green-400/80'}">₹ ${premAmt.toFixed(0)} (${premType})</span> | 
+                        Spot Val: <span class="text-indigo-400/80 font-mono">₹ ${(spotVal / 100000).toFixed(2)}L</span>
+                    </div>`;
+                    
+                    const entryStr = `<div>${t.entrySpot.toFixed(1)} / ${t.entryCall.toFixed(1)} / ${t.entryPut.toFixed(1)} <span class="text-white bg-white/10 px-1.5 rounded ml-1 text-xs font-bold font-mono">P/D: ${entryPDStr}</span></div>${cashFlowStr}`;
                     const exitStr = t.status === 'OPEN' ? '--' : `${t.exitSpot.toFixed(1)} / ${t.exitCall.toFixed(1)} / ${t.exitPut.toFixed(1)}`;
                     
                     let displayPnL = t.finalPnL;
@@ -2155,7 +2172,7 @@
                         const curCall = liveData.call_price;
                         const curPut = liveData.put_price;
                         let spotPnL = 0, callPnL = 0, putPnL = 0;
-                        if (t.direction.toLowerCase() === 'long') {
+                        if (t.direction.toLowerCase() === 'long' || t.direction.toUpperCase() === 'LONG') {
                             spotPnL = (t.entrySpot - curSpot) * t.qty; 
                             callPnL = (curCall - t.entryCall) * t.qty; 
                             putPnL = (t.entryPut - curPut) * t.qty;    
@@ -2168,13 +2185,46 @@
                     }
 
                     const pnlClass = displayPnL > 0 ? 'text-green-400' : (displayPnL < 0 ? 'text-red-400' : 'text-gray-400');
-                    const pnlStr = (t.status === 'OPEN' && !hasLiveData) ? '--' : `₹ ${displayPnL.toFixed(2)}`;
+                    let pnlStr = (t.status === 'OPEN' && !hasLiveData) ? '--' : `₹ ${displayPnL.toFixed(2)}`;
+                    
+                    // Detailed Option vs Spot P/L breakdown
+                    let breakdownStr = "";
+                    if (t.status === 'CLOSED' || t.status === 'EXPIRED' || hasLiveData) {
+                        let spotPnL = 0, callPnL = 0, putPnL = 0;
+                        const refSpot = (t.status === 'OPEN') ? liveData.underlying : t.exitSpot;
+                        const refCall = (t.status === 'OPEN') ? liveData.call_price : t.exitCall;
+                        const refPut = (t.status === 'OPEN') ? liveData.put_price : t.exitPut;
+                        
+                        if (t.direction.toLowerCase() === 'long' || t.direction.toUpperCase() === 'LONG') {
+                            spotPnL = (t.entrySpot - refSpot) * t.qty; 
+                            callPnL = (refCall - t.entryCall) * t.qty; 
+                            putPnL = (t.entryPut - refPut) * t.qty;    
+                        } else {
+                            spotPnL = (refSpot - t.entrySpot) * t.qty; 
+                            callPnL = (t.entryCall - refCall) * t.qty; 
+                            putPnL = (refPut - t.entryPut) * t.qty;    
+                        }
+                        const optPnL = callPnL + putPnL;
+                        
+                        const optSign = optPnL > 0 ? '+' : '';
+                        const spotSign = spotPnL > 0 ? '+' : '';
+                        
+                        const optClass = optPnL > 0 ? 'text-green-400/80' : (optPnL < 0 ? 'text-red-400/80' : 'text-gray-500');
+                        const spotClass = spotPnL > 0 ? 'text-green-400/80' : (spotPnL < 0 ? 'text-red-400/80' : 'text-gray-500');
+                        
+                        breakdownStr = `<div class="text-[10px] text-[#8b85a1] mt-0.5 font-medium">
+                            Opt: <span class="${optClass}">₹ ${optSign}${optPnL.toFixed(0)}</span> | 
+                            Spot: <span class="${spotClass}">₹ ${spotSign}${spotPnL.toFixed(0)}</span>
+                        </div>`;
+                    }
+                    
+                    const finalPnlCell = `<div>${pnlStr}</div>${breakdownStr}`;
                     
                     const actionAttr = t.status === 'OPEN' ? `onclick="loadOpenTrade(${idx}, ${t.id})" title="Click to load into Live Arb Tracker"` : '';
                     const rowHover = t.status === 'OPEN' ? 'hover:bg-[#3d3560] cursor-pointer' : 'hover:bg-[#231b2e]';
                     
                     const inlineExit = t.status === 'OPEN' ? `<button onclick="exitSpecificTrade(event, ${idx}, ${t.id})" class="ml-2 bg-red-600 hover:bg-red-500 text-white text-xs px-2.5 py-1 rounded font-bold transition">Exit</button>` : '';
-                    const inlineCalc = (t.status === 'CLOSED' || t.status === 'EXPIRED') ? `<button onclick="openCalcSpecificTrade(event, ${t.id})" class="ml-2 bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded font-bold transition" title="Open in Position Calculator"><i class="ph ph-calculator"></i></button>` : '';
+                    const inlineCalc = (t.status === 'CLOSED' || t.status === 'EXPIRED' ? `<button onclick="openCalcSpecificTrade(event, ${t.id})" class="ml-2 bg-blue-600 hover:bg-blue-500 text-white text-xs px-2.5 py-1 rounded font-bold transition" title="Open in Position Calculator"><i class="ph ph-calculator"></i></button>` : '');
                     const inlineEdit = `<button onclick="openEditTradeModal(event, ${idx}, ${t.id})" class="ml-2 bg-amber-600 hover:bg-amber-500 text-white text-xs px-2.5 py-1 rounded font-bold transition" title="Edit Trade"><i class="ph ph-pencil-simple"></i></button>`;
                     
                     const expiryStr = t.expiry || '--';
@@ -2189,7 +2239,7 @@
                                 <td class="p-2 font-mono text-amber-300">${expiryStr}</td>
                                 <td class="p-2 font-mono text-gray-400">${entryStr}</td>
                                 <td class="p-2 font-mono text-gray-400">${exitStr}</td>
-                                <td class="p-2 font-mono font-bold text-right ${pnlClass}">${pnlStr}</td>
+                                <td class="p-2 font-mono font-bold text-right ${pnlClass}">${finalPnlCell}</td>
                             </tr>
                     `;
                 });
