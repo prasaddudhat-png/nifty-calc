@@ -121,6 +121,7 @@ last_instrument_fetch = 0.0
 # Hash maps for instant lookups
 equity_index = {}      # "RELIANCE" → instrument item
 options_index = {}     # "RELIANCE" → [list of NFO OPTSTK items]
+futures_index = {}     # "RELIANCE"/"NIFTY" → [list of NFO FUTSTK/FUTIDX items]
 
 
 # ─── Math: Normal distribution helpers ───
@@ -259,9 +260,10 @@ def build_instrument_index(instruments):
     Build O(1) hash maps from the raw instrument list.
     Called once on startup, takes ~200ms for 100K+ instruments.
     """
-    global equity_index, options_index
+    global equity_index, options_index, futures_index
     eq_idx = {}
     opt_idx = {}
+    fut_idx = {}
 
     for item in instruments:
         seg = item.get("exch_seg", "")
@@ -280,9 +282,16 @@ def build_instrument_index(instruments):
                 opt_idx[name] = []
             opt_idx[name].append(item)
 
+        # Futures index: "RELIANCE" → [futures list]
+        if seg == "NFO" and itype in ["FUTSTK", "FUTIDX"] and name:
+            if name not in fut_idx:
+                fut_idx[name] = []
+            fut_idx[name].append(item)
+
     equity_index = eq_idx
     options_index = opt_idx
-    print(f"[Scanner] Index built: {len(eq_idx)} equities, {len(opt_idx)} option chains")
+    futures_index = fut_idx
+    print(f"[Scanner] Index built: {len(eq_idx)} equities, {len(opt_idx)} option chains, {len(fut_idx)} futures lists")
 
 
 async def fetch_instrument_list():
@@ -331,6 +340,27 @@ async def fetch_instrument_list():
 def find_equity_token(symbol):
     """O(1) equity lookup instead of scanning 100K+ items."""
     return equity_index.get(symbol.upper().strip())
+
+
+def find_nearest_future(symbol, is_index):
+    """Find the nearest expiry futures contract (FUTIDX or FUTSTK) using pre-built index."""
+    from datetime import datetime as dt
+    symbol_upper = symbol.upper().strip()
+    candidates = futures_index.get(symbol_upper, [])
+    if not candidates:
+        return None
+
+    def pexp(s):
+        try: return dt.strptime(s, "%d%b%Y")
+        except: return dt.max
+    today = dt.now().date()
+
+    itype = "FUTIDX" if is_index else "FUTSTK"
+    future = [o for o in candidates if o.get("instrumenttype") == itype and pexp(o.get("expiry", "")).date() >= today]
+    if not future:
+        return None
+    future.sort(key=lambda x: pexp(x["expiry"]))
+    return future[0]
 
 
 def find_atm_options(symbol, spot_price):
@@ -578,17 +608,22 @@ async def batch_scan_symbols(symbols):
             continue
 
         ce, pe, atm, T = find_atm_options(sym, ltp)
+        fut = find_nearest_future(sym, False)
+        fut_token = fut["token"] if fut else None
         option_info[sym] = {
             "quote_data": quote_data,
             "ltp": ltp,
             "ce": ce, "pe": pe,
-            "atm": atm, "T": T
+            "atm": atm, "T": T,
+            "fut_token": fut_token
         }
 
         if ce:
             nfo_tokens.append(ce["token"])
         if pe:
             nfo_tokens.append(pe["token"])
+        if fut_token:
+            nfo_tokens.append(fut_token)
 
     phase3_ms = round((time.time() - t2) * 1000, 1)
     print(f"  Phase 3 (options lookup): {len(nfo_tokens)} tokens in {phase3_ms}ms")
@@ -608,6 +643,8 @@ async def batch_scan_symbols(symbols):
         ltp = info["ltp"]
         ce, pe = info["ce"], info["pe"]
         atm, T = info["atm"], info["T"]
+        fut_token = info.get("fut_token")
+        fut_ltp = option_prices.get(fut_token, 0.0) if fut_token else 0.0
 
         close_price = float(qd.get("close", 0))
 
@@ -616,6 +653,7 @@ async def batch_scan_symbols(symbols):
             "success": True,
             "error": None,
             "ltp": ltp,
+            "futurePrice": fut_ltp,
             "open": float(qd.get("open", 0)),
             "high": float(qd.get("high", 0)),
             "low": float(qd.get("low", 0)),

@@ -104,6 +104,7 @@ equity_index = {}      # "RELIANCE" → instrument item (O(1) lookup)
 options_index_cache = {}  # "RELIANCE" → [NFO OPTSTK items]
 index_options_cache = {}   # "NIFTY" → [NFO OPTIDX items]
 mcx_index = {}          # "GOLD" → instrument item (MCX futures, nearest expiry)
+futures_index_cache = {}  # "RELIANCE"/"NIFTY" → [NFO FUTSTK/FUTIDX items]
 last_login_error = ""
 last_api_error = ""
 
@@ -272,11 +273,12 @@ def fetch_instrument_list():
         return False
 
 def _build_equity_index():
-    """Build O(1) hash maps for equity, stock-options, index-options, and MCX lookups."""
-    global equity_index, options_index_cache, index_options_cache, mcx_index
+    """Build O(1) hash maps for equity, stock-options, index-options, futures, and MCX lookups."""
+    global equity_index, options_index_cache, index_options_cache, mcx_index, futures_index_cache
     eq_idx = {}
     opt_idx = {}
     idx_opt = {}
+    fut_idx = {}
     mcx_raw = {}  # name → [items] (to pick nearest expiry later)
     for item in instrument_list:
         seg = item.get("exch_seg", "")
@@ -302,6 +304,11 @@ def _build_equity_index():
             if name not in idx_opt:
                 idx_opt[name] = []
             idx_opt[name].append(item)
+        # Futures: NFO FUTSTK and FUTIDX grouped by name
+        if seg == "NFO" and itype in ["FUTSTK", "FUTIDX"] and name:
+            if name not in fut_idx:
+                fut_idx[name] = []
+            fut_idx[name].append(item)
         # MCX Futures: group by name to pick nearest expiry
         if seg == "MCX" and itype == "FUTCOM" and name:
             if name not in mcx_raw:
@@ -323,7 +330,8 @@ def _build_equity_index():
     equity_index = eq_idx
     options_index_cache = opt_idx
     index_options_cache = idx_opt
-    print(f"Equity index: {len(eq_idx)} stocks, Stock-Options: {len(opt_idx)} chains, Index-Options: {len(idx_opt)} chains, MCX: {len(mcx_built)} commodities")
+    futures_index_cache = fut_idx
+    print(f"Equity index: {len(eq_idx)} stocks, Stock-Options: {len(opt_idx)} chains, Index-Options: {len(idx_opt)} chains, Futures: {len(fut_idx)} lists, MCX: {len(mcx_built)} commodities")
 
 ltp_cache = {}
 
@@ -1108,9 +1116,12 @@ def scanner_scan(req: ScanRequest):
             results.append({"symbol": sym, "success": False, "error": f"LTP=0 for {sym} (market closed?)"})
             continue
         ce, pe, atm, T, _expiry, _all_exp = _find_atm_options(sym, ltp)
-        opt_info[sym] = {"qd": qd, "ltp": ltp, "ce": ce, "pe": pe, "atm": atm, "T": T, "type": "stock"}
+        fut = _find_nearest_future(sym, False)
+        fut_token = fut["token"] if fut else None
+        opt_info[sym] = {"qd": qd, "ltp": ltp, "ce": ce, "pe": pe, "atm": atm, "T": T, "type": "stock", "fut_token": fut_token}
         if ce: nfo_tokens.append(ce["token"])
         if pe: nfo_tokens.append(pe["token"])
+        if fut_token: nfo_tokens.append(fut_token)
     # Index options
     for sym, spot in idx_spot.items():
         if spot <= 0:
@@ -1118,13 +1129,16 @@ def scanner_scan(req: ScanRequest):
             continue
         si = idx_map[sym]["strike_interval"]
         ce, pe, atm, T, expiry, _ = _find_index_options(sym, spot, si)
-        opt_info[sym] = {"qd": None, "ltp": spot, "ce": ce, "pe": pe, "atm": atm, "T": T, "type": "index", "expiry": expiry}
+        fut = _find_nearest_future(sym, True)
+        fut_token = fut["token"] if fut else None
+        opt_info[sym] = {"qd": None, "ltp": spot, "ce": ce, "pe": pe, "atm": atm, "T": T, "type": "index", "expiry": expiry, "fut_token": fut_token}
         if ce: nfo_tokens.append(ce["token"])
         if pe: nfo_tokens.append(pe["token"])
+        if fut_token: nfo_tokens.append(fut_token)
     p3_ms = round((time.time() - t3) * 1000, 1)
     if no_quote_count > 0:
         print(f"  Phase 3: !! {no_quote_count} symbols had no quote data")
-    print(f"  Phase 3 (options lookup): {len(nfo_tokens)} option tokens ({p3_ms}ms)")
+    print(f"  Phase 3 (options lookup): {len(nfo_tokens)} option/future tokens ({p3_ms}ms)")
 
     # Phase 4: Batched LTP for all options (25 tokens per API call)
     opt_prices = {}
@@ -1132,19 +1146,22 @@ def scanner_scan(req: ScanRequest):
         t4 = time.time()
         opt_prices = _batched_ltp_quote("NFO", nfo_tokens)
         p4_ms = round((time.time() - t4) * 1000, 1)
-        print(f"  Phase 4 done: {len(opt_prices)}/{len(nfo_tokens)} option prices received ({p4_ms}ms)")
+        print(f"  Phase 4 done: {len(opt_prices)}/{len(nfo_tokens)} option/future prices received ({p4_ms}ms)")
 
     # Phase 5: Assemble results
     # 5a: Stocks + Indices (with options)
     for sym, info in opt_info.items():
         ltp = info["ltp"]
         ce, pe, atm, T = info["ce"], info["pe"], info["atm"], info["T"]
+        fut_token = info.get("fut_token")
+        fut_ltp = opt_prices.get(fut_token, 0.0) if fut_token else 0.0
         if info["type"] == "stock":
             qd = info["qd"]
             close_p = float(qd.get("close", 0))
             r = {
                 "symbol": sym, "success": True, "error": None,
                 "ltp": ltp,
+                "futurePrice": fut_ltp,
                 "open": float(qd.get("open", 0)),
                 "high": float(qd.get("high", 0)),
                 "low": float(qd.get("low", 0)),
@@ -1158,6 +1175,7 @@ def scanner_scan(req: ScanRequest):
             r = {
                 "symbol": sym, "success": True, "error": None,
                 "ltp": ltp,
+                "futurePrice": fut_ltp,
                 "open": 0, "high": 0, "low": 0, "close": 0,
                 "volume": 0, "percentChange": 0.0, "netChange": 0.0,
             }
@@ -1188,6 +1206,7 @@ def scanner_scan(req: ScanRequest):
         results.append({
             "symbol": sym, "success": True, "error": None,
             "ltp": ltp,
+            "futurePrice": ltp,
             "open": 0, "high": 0, "low": 0, "close": 0,
             "volume": 0, "percentChange": 0.0, "netChange": 0.0,
             "atmStrike": None, "expiry": item.get("expiry", None),
@@ -1380,20 +1399,21 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
 def _find_nearest_future(symbol, is_index):
     """Find the nearest expiry futures contract (FUTIDX or FUTSTK)."""
     from datetime import datetime as dt
+    symbol_upper = symbol.upper().strip()
+    
+    candidates = futures_index_cache.get(symbol_upper, [])
+    if not candidates:
+        # Fallback to linear scan if cache not built/loaded
+        itype = "FUTIDX" if is_index else "FUTSTK"
+        candidates = [item for item in instrument_list if item.get("name") == symbol_upper and item.get("instrumenttype") == itype]
+        
     def pexp(s):
         try: return dt.strptime(s, "%d%b%Y")
         except: return dt.max
     today = dt.now().date()
     
-    candidates = []
-    symbol = symbol.upper()
     itype = "FUTIDX" if is_index else "FUTSTK"
-    
-    for item in instrument_list:
-        if item.get("name") == symbol and item.get("instrumenttype") == itype:
-            candidates.append(item)
-            
-    future = [o for o in candidates if pexp(o.get("expiry", "")).date() >= today]
+    future = [o for o in candidates if o.get("instrumenttype") == itype and pexp(o.get("expiry", "")).date() >= today]
     if not future:
         return None
     future.sort(key=lambda x: pexp(x["expiry"]))

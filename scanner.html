@@ -625,6 +625,7 @@
                         <tr>
                             <th data-col="symbol" onclick="sortBy('symbol')">Symbol <span class="sort-arrow">▲</span></th>
                             <th data-col="ltp" onclick="sortBy('ltp')">LTP <span class="sort-arrow">▲</span></th>
+                            <th data-col="futurePrice" onclick="sortBy('futurePrice')">Future Price <span class="sort-arrow">▲</span></th>
                             <th data-col="netChange" onclick="sortBy('netChange')">Change <span class="sort-arrow">▲</span></th>
                             <th data-col="percentChange" onclick="sortBy('percentChange')">% Chg <span class="sort-arrow">▲</span></th>
                             <th data-col="lotSize" onclick="sortBy('lotSize')">Lot Size <span class="sort-arrow">▲</span></th>
@@ -929,7 +930,7 @@
                     tr.className = 'error-row';
                     tr.innerHTML = `
                         <td class="sym-cell">${item.symbol}</td>
-                        <td colspan="14" style="text-align:left; color:#f87171">
+                        <td colspan="16" style="text-align:left; color:#f87171">
                             <i class="ph ph-warning"></i> ${item.error || 'Error'}
                         </td>`;
                 } else {
@@ -952,6 +953,7 @@
                             <div class="sym-expiry">${item.expiry ? fmtExpiry(item.expiry) : ''}</div>
                         </td>
                         <td style="color:#fff; font-weight:700">₹${fmt(item.ltp)}</td>
+                        <td style="color:#60a5fa; font-weight:700">${item.futurePrice ? '₹' + fmt(item.futurePrice) : '--'}</td>
                         <td>
                             <span class="change-badge ${chgClass}">
                                 ${pos ? '+' : ''}${fmt(item.netChange)}
@@ -1290,6 +1292,10 @@
                     <div class="detail-item-value" style="color:#60a5fa;">${item.lotSize || '--'}</div>
                 </div>
                 <div class="detail-item">
+                    <div class="detail-item-label">Future Price</div>
+                    <div class="detail-item-value" style="color:#60a5fa;">${item.futurePrice ? '₹' + fmt(item.futurePrice) : '--'}</div>
+                </div>
+                <div class="detail-item">
                     <div class="detail-item-label">CE Premium</div>
                     <div class="detail-item-value" style="color:#10b981;">₹${item.cePremium ? fmt(item.cePremium) : '--'}</div>
                 </div>
@@ -1509,14 +1515,14 @@
             const now = new Date();
             const dateStr = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
             const timeStr = now.toLocaleTimeString();
-            let csv = 'Date,Time,Symbol,LTP,Change,Change%,Lot Size,IV,Volume,ATM Strike,Expiry,CE Premium,PE Premium,P/D,Open,High,Low,Close\n';
+            let csv = 'Date,Time,Symbol,LTP,Future Price,Change,Change%,Lot Size,IV,Volume,ATM Strike,Expiry,CE Premium,PE Premium,P/D,Open,High,Low,Close\n';
             scanResults.forEach(item => {
                 if (!item.success) return;
                 let pd = '';
                 if (item.atmStrike && item.ltp && (item.cePremium || item.pePremium)) {
                     pd = ((item.atmStrike + (item.cePremium||0) - (item.pePremium||0)) - item.ltp).toFixed(2);
                 }
-                csv += `${dateStr},${timeStr},${item.symbol},${item.ltp||''},${item.netChange||''},${item.percentChange||''},${item.lotSize||''},${item.iv||''},${item.volume||''},${item.atmStrike||''},${item.expiry||''},${item.cePremium||''},${item.pePremium||''},${pd},${item.open||''},${item.high||''},${item.low||''},${item.close||''}\n`;
+                csv += `${dateStr},${timeStr},${item.symbol},${item.ltp||''},${item.futurePrice||''},${item.netChange||''},${item.percentChange||''},${item.lotSize||''},${item.iv||''},${item.volume||''},${item.atmStrike||''},${item.expiry||''},${item.cePremium||''},${item.pePremium||''},${pd},${item.open||''},${item.high||''},${item.low||''},${item.close||''}\n`;
             });
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
