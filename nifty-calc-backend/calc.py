@@ -841,7 +841,7 @@ def _find_atm_options(symbol, spot_price, override_strike=None, override_expiry=
     for o in nearest:
         try: strikes.add(float(o["strike"]) / 100.0)
         except: pass
-    if not strikes: return None, None, None, None
+    if not strikes: return None, None, None, None, None, []
     
     if override_strike:
         atm = float(override_strike)
@@ -1173,8 +1173,9 @@ def scanner_scan(req: ScanRequest):
             r["ceIV"] = ce_iv
             r["peIV"] = pe_iv
             r["iv"] = ce_iv  # Show CE IV as main IV (matches terminal)
+            r["lotSize"] = int(ce.get("lotsize", 0))
         else:
-            r.update({"atmStrike": None, "expiry": None, "iv": 0.0, "ceIV": 0.0, "peIV": 0.0, "cePremium": 0.0, "pePremium": 0.0})
+            r.update({"atmStrike": None, "expiry": None, "iv": 0.0, "ceIV": 0.0, "peIV": 0.0, "cePremium": 0.0, "pePremium": 0.0, "lotSize": 0})
         results.append(r)
 
     # 5b: MCX commodities (no options, just futures price)
@@ -1191,6 +1192,7 @@ def scanner_scan(req: ScanRequest):
             "volume": 0, "percentChange": 0.0, "netChange": 0.0,
             "atmStrike": None, "expiry": item.get("expiry", None),
             "iv": 0.0, "cePremium": 0.0, "pePremium": 0.0,
+            "lotSize": int(item.get("lotsize", 0))
         })
 
     elapsed = round(time.time() - start_time, 2)
@@ -1230,7 +1232,7 @@ def _find_index_options(index_name, spot_price, strike_interval, override_strike
         try: strikes.add(float(o["strike"]) / 100.0)
         except: pass
     if not strikes:
-        return None, None, None, None, None
+        return None, None, None, None, None, []
         
     if override_strike:
         atm = float(override_strike)
@@ -1484,6 +1486,8 @@ def get_historical_synthetic(symbol: str = "NIFTY", strike: float = None):
     if symbol_upper in INDEX_SPOT_TOKENS:
         exchange, spot_token, interval = INDEX_SPOT_TOKENS[symbol_upper]
         is_index = True
+        if exchange == "NSE" and not spot_token.startswith("999"):
+            spot_token = "999" + spot_token
     elif symbol_upper == "SENSEX":
         exchange, spot_token, interval = "BSE", "99919000", 100
         is_index = True
@@ -1508,8 +1512,7 @@ def get_historical_synthetic(symbol: str = "NIFTY", strike: float = None):
     if is_index:
         ce_opt, pe_opt, atm_strike, _, expiry, _ = _find_index_options(symbol_upper, day_open_price, interval, strike)
     else:
-        ce_opt, pe_opt, atm_strike, _ = _find_atm_options(symbol_upper, day_open_price, strike)
-        expiry = ce_opt["expiry"] if ce_opt else None
+        ce_opt, pe_opt, atm_strike, _, expiry, _ = _find_atm_options(symbol_upper, day_open_price, strike)
 
     if not ce_opt or not pe_opt:
         return {"success": False, "error": f"Could not find ATM options for {symbol_upper} at {day_open_price}"}
@@ -2181,7 +2184,7 @@ async def resolve_and_subscribe_options(sub: BoxSubscription, spot_price: float)
             sub.available_expiries = all_expiries
             
             try:
-                sub.lot_size = int(ce.get("lot_size", 0))
+                sub.lot_size = int(ce.get("lotsize", ce.get("lot_size", 0)))
             except:
                 sub.lot_size = 0
                 
@@ -2342,5 +2345,5 @@ app.mount("/", StaticFiles(directory="../", html=True), name="static")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("calc:app", host="0.0.0.0", port=8000, reload=True)
 

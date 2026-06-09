@@ -2739,6 +2739,12 @@
                 boxShowAllExpiries[idx] = false;
                 updateShowAllBtn(idx);
                 rebuildChartDatasets(idx);
+                
+                // Clear dataset symbol to force lot size update from backend on start
+                const lotMultInput = el(`liveLotMult${idx}`);
+                if (lotMultInput) {
+                    lotMultInput.removeAttribute('data-symbol');
+                }
 
                 // Reset alerts (up & down)
                 boxAlertUpTarget[idx] = null;

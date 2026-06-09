@@ -401,7 +401,7 @@ async def bulk_full_quote(exchange, tokens):
         return {}
     all_results = {}
     total_batches = (len(tokens) + QUOTE_BATCH_SIZE - 1) // QUOTE_BATCH_SIZE
-    print(f"  [BatchFULL] {len(tokens)} tokens → {total_batches} batch(es) of ≤{QUOTE_BATCH_SIZE}")
+    print(f"  [BatchFULL] {len(tokens)} tokens -> {total_batches} batch(es) of <={QUOTE_BATCH_SIZE}")
 
     for i in range(0, len(tokens), QUOTE_BATCH_SIZE):
         chunk = tokens[i:i+QUOTE_BATCH_SIZE]
@@ -432,7 +432,7 @@ async def bulk_full_quote(exchange, tokens):
                         if unfetched:
                             print(f"  [BatchFULL] Batch {batch_num}: {len(fetched)} fetched, {len(unfetched)} UNFETCHED")
                         else:
-                            print(f"  [BatchFULL] Batch {batch_num}/{total_batches}: {len(fetched)}/{len(chunk)} fetched ✓")
+                            print(f"  [BatchFULL] Batch {batch_num}/{total_batches}: {len(fetched)}/{len(chunk)} fetched OK")
                         batch_ok = True
                         break
                     else:
@@ -443,7 +443,7 @@ async def bulk_full_quote(exchange, tokens):
                     await asyncio.sleep(1.0 * (attempt + 1))
 
         if not batch_ok:
-            print(f"  [BatchFULL] ⚠ Batch {batch_num}/{total_batches} FAILED after 3 retries")
+            print(f"  [BatchFULL] WARN Batch {batch_num}/{total_batches} FAILED after 3 retries")
         if batch_num < total_batches:
             await asyncio.sleep(0.4)
 
@@ -455,7 +455,7 @@ async def bulk_ltp_quote(exchange_tokens_dict):
     all_results = {}
     for exchange, tokens in exchange_tokens_dict.items():
         total_batches = (len(tokens) + QUOTE_BATCH_SIZE - 1) // QUOTE_BATCH_SIZE
-        print(f"  [BatchLTP] {len(tokens)} tokens → {total_batches} batch(es) of ≤{QUOTE_BATCH_SIZE}")
+        print(f"  [BatchLTP] {len(tokens)} tokens -> {total_batches} batch(es) of <={QUOTE_BATCH_SIZE}")
 
         for i in range(0, len(tokens), QUOTE_BATCH_SIZE):
             chunk = tokens[i:i+QUOTE_BATCH_SIZE]
@@ -486,7 +486,7 @@ async def bulk_ltp_quote(exchange_tokens_dict):
                             if unfetched:
                                 print(f"  [BatchLTP] Batch {batch_num}: {len(fetched)} fetched, {len(unfetched)} UNFETCHED")
                             else:
-                                print(f"  [BatchLTP] Batch {batch_num}/{total_batches}: {len(fetched)}/{len(chunk)} fetched ✓")
+                                print(f"  [BatchLTP] Batch {batch_num}/{total_batches}: {len(fetched)}/{len(chunk)} fetched OK")
                             batch_ok = True
                             break
                         else:
@@ -497,7 +497,7 @@ async def bulk_ltp_quote(exchange_tokens_dict):
                         await asyncio.sleep(1.0 * (attempt + 1))
 
             if not batch_ok:
-                print(f"  [BatchLTP] ⚠ Batch {batch_num}/{total_batches} FAILED after 3 retries")
+                print(f"  [BatchLTP] WARN Batch {batch_num}/{total_batches} FAILED after 3 retries")
             if batch_num < total_batches:
                 await asyncio.sleep(0.4)
 
@@ -632,10 +632,12 @@ async def batch_scan_symbols(symbols):
             result["cePremium"] = ce_ltp
             result["iv"] = calc_iv(ce_ltp, ltp, atm, T) if ce_ltp > 0 and T > 0 else 0.0
             result["pePremium"] = option_prices.get(pe["token"], 0.0) if pe else 0.0
+            result["lotSize"] = int(ce.get("lotsize", 0))
         else:
             result.update({
                 "atmStrike": None, "expiry": None,
-                "iv": 0.0, "cePremium": 0.0, "pePremium": 0.0
+                "iv": 0.0, "cePremium": 0.0, "pePremium": 0.0,
+                "lotSize": 0
             })
 
         results.append(result)
@@ -719,4 +721,4 @@ async def scanner_health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run("scanner_backend:app", host="0.0.0.0", port=8001, reload=True)

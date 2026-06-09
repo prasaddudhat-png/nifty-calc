@@ -9,7 +9,7 @@ calc.fetch_instrument_list()
 spot_price = calc.get_ltp("NSE", "NIFTY", "99926000")
 print("Spot:", spot_price)
 
-ce, pe, atm, T, expiry = calc._find_index_options("NIFTY", spot_price, 50, None)
+ce, pe, atm, T, expiry, _ = calc._find_index_options("NIFTY", spot_price, 50, None)
 print("CE Expiry:", expiry, "Token:", ce["token"])
 
 end_date = datetime.now()
