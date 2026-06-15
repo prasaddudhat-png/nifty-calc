@@ -690,9 +690,48 @@
         const protocol = window.location.protocol;
         const port = window.location.port;
         const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-        const SCANNER_API = isDev ? `http://${host}:8001` : ``;  // Dedicated fast scanner
-        const FALLBACK_API = isDev ? `http://${host}:8000` : ``;  // Main backend fallback
+        const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+        const savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
+        const SCANNER_API = savedScannerUrl !== null ? savedScannerUrl : (isDev ? `http://${host}:8001` : ``);
+        const FALLBACK_API = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : ``);
         let activeAPI = null;  // Will be set after detection
+
+        // ─── StateStorage Backend Persistence Utility ───
+        const StateStorage = {
+            async get(key, defaultValue = null) {
+                try {
+                    const res = await fetch(`${FALLBACK_API}/api/state/${encodeURIComponent(key)}`);
+                    const data = await res.json();
+                    if (data.success && data.value !== undefined) {
+                        return JSON.parse(data.value);
+                    }
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to get '${key}' from backend, using localStorage fallback:`, e);
+                }
+                try {
+                    const val = localStorage.getItem(key);
+                    return val ? JSON.parse(val) : defaultValue;
+                } catch(e) {
+                    return defaultValue;
+                }
+            },
+            async set(key, value) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to write '${key}' to localStorage:`, e);
+                }
+                try {
+                    await fetch(`${FALLBACK_API}/api/state/${encodeURIComponent(key)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value: JSON.stringify(value) })
+                    });
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to sync '${key}' to backend:`, e);
+                }
+            }
+        };
 
         const symbolInput = document.getElementById('symbolInput');
         const scanBtn = document.getElementById('scanBtn');
@@ -1056,20 +1095,31 @@
             }
         }
 
-        // ─── Search History (localStorage) ───
+        // ─── Search History (localStorage + Backend State API) ───
         const HISTORY_KEY = 'scanner_search_history';
         const MAX_HISTORY = 15;
+        let searchHistoryCache = [];
 
-        function getHistory() {
+        function initHistory() {
             try {
                 const raw = localStorage.getItem(HISTORY_KEY);
-                return raw ? JSON.parse(raw) : [];
-            } catch {
-                return [];
-            }
+                searchHistoryCache = raw ? JSON.parse(raw) : [];
+            } catch(e) {}
+            renderHistory();
+
+            StateStorage.get(HISTORY_KEY, searchHistoryCache).then(history => {
+                if (history) {
+                    searchHistoryCache = history;
+                    renderHistory();
+                }
+            });
         }
 
-        function saveToHistory(symbols) {
+        function getHistory() {
+            return searchHistoryCache;
+        }
+
+        async function saveToHistory(symbols) {
             const history = getHistory();
             const key = symbols.sort().join(',');
 
@@ -1084,21 +1134,23 @@
             });
 
             // Keep only last MAX_HISTORY entries
-            const trimmed = filtered.slice(0, MAX_HISTORY);
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
+            searchHistoryCache = filtered.slice(0, MAX_HISTORY);
+            await StateStorage.set(HISTORY_KEY, searchHistoryCache);
             renderHistory();
         }
 
-        function removeHistoryItem(index, event) {
+        async function removeHistoryItem(index, event) {
             event.stopPropagation();
             const history = getHistory();
             history.splice(index, 1);
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            searchHistoryCache = history;
+            await StateStorage.set(HISTORY_KEY, searchHistoryCache);
             renderHistory();
         }
 
-        function clearHistory() {
-            localStorage.removeItem(HISTORY_KEY);
+        async function clearHistory() {
+            searchHistoryCache = [];
+            await StateStorage.set(HISTORY_KEY, []);
             renderHistory();
         }
 
@@ -1155,7 +1207,7 @@
         }
 
         // Load history on page load
-        renderHistory();
+        initHistory();
 
         // ─── Premium/Discount Calculation ───
         function calcPD(item) {

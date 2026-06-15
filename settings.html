@@ -158,7 +158,30 @@
     <div class="calc-container mt-8">
         <div class="mb-8">
             <h1 class="text-3xl font-bold tracking-tight mb-2">API Configuration</h1>
-            <p class="text-[#8b85a1]">Set your Angel One API credentials here. This allows the dashboard to easily run on any system without modifying the code.</p>
+            <p class="text-[#8b85a1]">Set your backend server URLs and Angel One API credentials here. This allows the dashboard to run in any hosting setup (including Railway.app) without code changes.</p>
+        </div>
+
+        <!-- Server Connection Settings -->
+        <div class="dark-card mb-6">
+            <h2 class="text-lg font-bold uppercase tracking-wider text-indigo-400 mb-4 flex items-center gap-2">
+                <i class="ph ph-globe"></i> Server Connection Settings
+            </h2>
+            <p class="text-xs text-gray-400 mb-4">
+                If your backend is hosted on a cloud provider like Railway.app, enter your custom backend server URLs below (e.g. <code>https://nifty-calc-production.up.railway.app</code>). Leave blank to use the default local address.
+            </p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="input-group mb-0">
+                    <label class="input-label">Backend API URL (Port 8000)</label>
+                    <input type="text" id="backendApiUrl" class="settings-input" placeholder="e.g. http://localhost:8000" autocomplete="off">
+                </div>
+                <div class="input-group mb-0">
+                    <label class="input-label">Scanner API URL (Port 8001)</label>
+                    <input type="text" id="scannerApiUrl" class="settings-input" placeholder="e.g. http://localhost:8001" autocomplete="off">
+                </div>
+            </div>
+            <button type="button" id="connSaveBtn" onclick="saveConnectionSettings()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-6 rounded-lg transition text-sm flex items-center justify-center gap-2">
+                <i class="ph ph-link"></i> Save Connection URLs
+            </button>
         </div>
 
         <div class="dark-card">
@@ -203,12 +226,17 @@
     </div>
 
     <script>
+        // Read custom backend/scanner server URLs from localStorage
+        const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+        const savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
+
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol;
         const port = window.location.port;
         const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-        const API_URL = isDev ? `http://${host}:8000` : ``;
-        const SCANNER_API_URL = isDev ? `http://${host}:8001` : ``;
+        
+        let API_URL = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : ``);
+        let SCANNER_API_URL = savedScannerUrl !== null ? savedScannerUrl : (isDev ? `http://${host}:8001` : ``);
 
         function showToast(msg, isError = false) {
             const toast = document.getElementById('toast');
@@ -291,7 +319,43 @@
             }
         }
 
+        function loadConnectionUrls() {
+            document.getElementById('backendApiUrl').value = localStorage.getItem('nifty_calc_backend_url') || '';
+            document.getElementById('scannerApiUrl').value = localStorage.getItem('nifty_calc_scanner_url') || '';
+        }
+
+        function saveConnectionSettings() {
+            let backendUrl = document.getElementById('backendApiUrl').value.trim();
+            let scannerUrl = document.getElementById('scannerApiUrl').value.trim();
+            
+            // Clean up trailing slashes
+            if (backendUrl.endsWith('/')) backendUrl = backendUrl.slice(0, -1);
+            if (scannerUrl.endsWith('/')) scannerUrl = scannerUrl.slice(0, -1);
+            
+            if (backendUrl) {
+                localStorage.setItem('nifty_calc_backend_url', backendUrl);
+            } else {
+                localStorage.removeItem('nifty_calc_backend_url');
+            }
+            
+            if (scannerUrl) {
+                localStorage.setItem('nifty_calc_scanner_url', scannerUrl);
+            } else {
+                localStorage.removeItem('nifty_calc_scanner_url');
+            }
+            
+            // Re-evaluate API URLs
+            const newBackend = localStorage.getItem('nifty_calc_backend_url');
+            const newScanner = localStorage.getItem('nifty_calc_scanner_url');
+            API_URL = newBackend !== null ? newBackend : (isDev ? `http://${host}:8000` : ``);
+            SCANNER_API_URL = newScanner !== null ? newScanner : (isDev ? `http://${host}:8001` : ``);
+            
+            showToast("Connection settings saved! Reloading backend data...");
+            loadSettings();
+        }
+
         // Initial load
+        loadConnectionUrls();
         loadSettings();
     </script>
 </body>

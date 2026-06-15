@@ -299,7 +299,58 @@
         </div>
     </div>
 
-    <script>
+        const host = window.location.hostname || 'localhost';
+        const protocol = window.location.protocol;
+        const port = window.location.port;
+        const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+        const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+        const _tradeApiBase = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
+        let currentUser = 'pra'; // Loaded dynamically from StateStorage
+
+        // ─── StateStorage Backend Persistence Utility ───
+        const StateStorage = {
+            async get(key, defaultValue = null) {
+                try {
+                    const res = await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`);
+                    const data = await res.json();
+                    if (data.success && data.value !== undefined) {
+                        return JSON.parse(data.value);
+                    }
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to get '${key}' from backend, using localStorage fallback:`, e);
+                }
+                try {
+                    const val = localStorage.getItem(key);
+                    return val ? JSON.parse(val) : defaultValue;
+                } catch(e) {
+                    return defaultValue;
+                }
+            },
+            async set(key, value) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to write '${key}' to localStorage:`, e);
+                }
+                try {
+                    await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value: JSON.stringify(value) })
+                    });
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to sync '${key}' to backend:`, e);
+                }
+            }
+        };
+
+        // Date helper: always dd/mm/yyyy format
+        function formatDate(d) {
+            if (!d) d = new Date();
+            if (typeof d === 'string') return d; // already formatted
+            return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+        }
+
         let currentDirection = 'long';
 
         function setDirection(dir) {
@@ -590,20 +641,12 @@
             const expenses = getVal('expenses');
             const netPnL = (exitCall && exitPut) ? (callPnL + putPnL + spotPnL - expenses) : 0;
             
-            const host = window.location.hostname || 'localhost';
-            const protocol = window.location.protocol;
-            const port = window.location.port;
-            const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-            const _tradeApiBase = isDev ? `http://${host}:8000` : '';
-            
-            const currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
-            
             const newTrade = {
                 id: Date.now(),
                 status: (exitSpot && exitCall && exitPut) ? 'closed' : 'active',
-                entryDate: new Date().toISOString().split('T')[0],
+                entryDate: formatDate(),
                 entryTime: new Date().toTimeString().split(' ')[0],
-                exitDate: (exitSpot && exitCall && exitPut) ? new Date().toISOString().split('T')[0] : '',
+                exitDate: (exitSpot && exitCall && exitPut) ? formatDate() : '',
                 exitTime: (exitSpot && exitCall && exitPut) ? new Date().toTimeString().split(' ')[0] : '',
                 symbol: symbol,
                 direction: currentDirection,
@@ -747,9 +790,15 @@
 
         // Parse URL params for auto-fill
         window.addEventListener('DOMContentLoaded', () => {
-            const currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
+            const fallbackUser = localStorage.getItem('autocalc_current_user') || 'pra';
+            currentUser = fallbackUser;
             const userLabel = document.getElementById('activeUserLabel');
-            if (userLabel) userLabel.innerText = currentUser.toUpperCase();
+            if (userLabel) userLabel.innerText = fallbackUser.toUpperCase();
+
+            StateStorage.get('autocalc_current_user', fallbackUser).then(user => {
+                currentUser = user;
+                if (userLabel) userLabel.innerText = user.toUpperCase();
+            });
 
             const params = new URLSearchParams(window.location.search);
             

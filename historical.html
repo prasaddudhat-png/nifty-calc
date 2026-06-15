@@ -342,10 +342,12 @@
 
             try {
                 // Determine API base
-                const host = window.location.hostname || 'localhost';
+                const rawHost = window.location.hostname || 'localhost';
+                const host = (rawHost === 'localhost' || rawHost === '[::1]' || !rawHost) ? '127.0.0.1' : rawHost;
                 const port = window.location.port;
                 const isDev = window.location.protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-                const API_BASE = isDev ? `http://${host}:8000` : '';
+                const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+                const API_BASE = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
                 
                 const res = await fetch(`${API_BASE}/api/market/historical?symbol=${encodeURIComponent(symbol)}`);
                 const data = await res.json();

@@ -24,7 +24,7 @@ session = requests.Session()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -1636,7 +1636,25 @@ def set_config(config: APIConfig):
         auth_token = None
         feed_token = None
         last_login_time = 0
-        return {"success": True, "message": "Credentials updated successfully"}
+        # Reset and reconnect WebSocket
+        try:
+            ws_manager.is_connected = False
+            with ws_manager.lock:
+                if ws_manager.sws:
+                    try:
+                        ws_manager.sws.close()
+                    except Exception:
+                        pass
+                    ws_manager.sws = None
+                ws_manager.reconnecting = False
+                ws_manager.reconnect_delay = 5
+            # Trigger reconnect in a background thread to not block the API response
+            threading.Thread(target=ws_manager.connect_ws, daemon=True).start()
+            print("[WS] Reconnection triggered after config update.")
+        except Exception as e:
+            print(f"Error resetting WS after config update: {e}")
+            
+        return {"success": True, "message": "Credentials updated successfully and WebSocket reconnect triggered"}
     return {"success": False, "message": "Failed to save credentials"}
 
 # ─── DATABASE AND STORAGE MANAGEMENT (SQLite) ───
@@ -1646,11 +1664,13 @@ TRADES_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trades_d
 
 # In-memory dict to track last saved tick time and values to prevent database bloat
 last_saved_ticks = {} # key: (symbol, expiry, strike), value: (timestamp, underlying, call_price, put_price)
+last_saved_ticks_history = {} # key: (symbol, expiry, strike), value: List of saved ticks for spike checking
 
 def init_db():
     """Initialize database and migrate existing trades from json if any."""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
+        conn.execute("PRAGMA journal_mode=WAL;")
         cursor = conn.cursor()
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS trades (
@@ -1699,6 +1719,14 @@ def init_db():
         """)
         # Index on symbol/strike/expiry/timestamp to keep retrieval fast
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_market_ticks_query ON market_ticks (symbol, expiry, strike, timestamp DESC)")
+        
+        # Table for frontend configurations / persistent UI state
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS frontend_state (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            )
+        """)
         conn.commit()
 
         # Migrate from JSON to SQLite once
@@ -1762,7 +1790,7 @@ init_db()
 def cleanup_old_ticks():
     """Delete market ticks older than 30 days to optimize storage."""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         cursor = conn.cursor()
         # 30 days in milliseconds
         cutoff = int((time.time() - 30 * 24 * 60 * 60) * 1000)
@@ -1776,7 +1804,7 @@ def cleanup_old_ticks():
         print(f"Error during storage cleanup: {e}")
 
 def save_market_tick(symbol, strike, expiry, underlying, call_price, put_price, synthetic_future, premium_discount):
-    """Saves a single market price tick to the database, throttled to prevent spam."""
+    """Saves a single market price tick to the database, filtering out temporary price spikes."""
     key = (symbol, expiry, strike)
     now_ts = int(time.time() * 1000) # milliseconds
     
@@ -1788,16 +1816,99 @@ def save_market_tick(symbol, strike, expiry, underlying, call_price, put_price, 
             return
             
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         cursor = conn.cursor()
+        
+        # Load history from DB if not already in memory
+        if key not in last_saved_ticks_history:
+            last_saved_ticks_history[key] = []
+            try:
+                cursor.execute("""
+                    SELECT id, timestamp, underlying, call_price, put_price, synthetic_future, premium_discount
+                    FROM market_ticks
+                    WHERE symbol = ? AND expiry = ? AND strike = ?
+                    ORDER BY timestamp DESC LIMIT 2
+                """, (symbol, expiry, strike))
+                rows = cursor.fetchall()
+                for row in reversed(rows):
+                    row_id, timestamp, spot, ce, pe, synth, pd = row
+                    tick_dict = {
+                        'timestamp': timestamp,
+                        'underlying': spot,
+                        'call_price': ce,
+                        'put_price': pe,
+                        'synthetic_future': synth,
+                        'premium_discount': pd
+                    }
+                    last_saved_ticks_history[key].append((row_id, tick_dict))
+            except Exception as db_err:
+                print(f"Error loading tick history from db for key {key}: {db_err}")
+        
+        # Insert the current tick
         cursor.execute("""
             INSERT INTO market_ticks (
                 timestamp, symbol, strike, expiry, underlying, call_price, put_price, synthetic_future, premium_discount
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (now_ts, symbol, strike, expiry, underlying, call_price, put_price, synthetic_future, premium_discount))
         conn.commit()
+        inserted_id = cursor.lastrowid
+        
+        # Update history list
+        current_tick = {
+            'timestamp': now_ts,
+            'underlying': underlying,
+            'call_price': call_price,
+            'put_price': put_price,
+            'synthetic_future': synthetic_future,
+            'premium_discount': premium_discount
+        }
+        last_saved_ticks_history[key].append((inserted_id, current_tick))
+        
+        # Check for spike in the last saved tick history (with 4-tick lookahead)
+        h = last_saved_ticks_history[key]
+        if len(h) >= 3:
+            JUMP_THRESHOLD = 15.0
+            REVERT_THRESHOLD = 4.0
+            MAX_LOOKAHEAD = 4
+            
+            start_idx = len(h) - 1
+            end_idx = max(1, len(h) - 2 - MAX_LOOKAHEAD)
+            
+            for i in range(start_idx, end_idx - 1, -1):
+                prev_stable = h[i - 1][1]
+                jump_tick = h[i][1]
+                jump_diff = jump_tick['premium_discount'] - prev_stable['premium_discount']
+                
+                if abs(jump_diff) > JUMP_THRESHOLD:
+                    ticks_after = h[i:]
+                    reverted_idx = -1
+                    for j, item in enumerate(ticks_after):
+                        curr = item[1]
+                        if abs(curr['premium_discount'] - prev_stable['premium_discount']) <= REVERT_THRESHOLD:
+                            reverted_idx = i + j
+                            break
+                            
+                    if reverted_idx != -1:
+                        spike_count = reverted_idx - i
+                        if spike_count > 0:
+                            spike_ids = [h[idx][0] for idx in range(i, reverted_idx)]
+                            print(f"[Spike Filter] Deleting {len(spike_ids)} spike ticks from database: {spike_ids}")
+                            cursor.execute(f"DELETE FROM market_ticks WHERE id IN ({','.join(map(str, spike_ids))})")
+                            conn.commit()
+                            
+                            # Remove from memory history list
+                            del h[i:reverted_idx]
+                            break
+                    else:
+                        if len(ticks_after) > MAX_LOOKAHEAD:
+                            break # Verified real trend shift
+        
         conn.close()
         
+        # Keep history list small (last 8 entries max)
+        if len(last_saved_ticks_history[key]) > 8:
+            last_saved_ticks_history[key].pop(0)
+            
         # Update throttle cache
         last_saved_ticks[key] = (now_ts, underlying, call_price, put_price)
     except Exception as e:
@@ -1821,7 +1932,7 @@ def system_ip():
 def get_trades(user: str = "User 1"):
     """Get active trades (OPEN/EXPIRED) or trades entered/exited today for a specific user."""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -1848,7 +1959,7 @@ def save_trades(payload: dict, user: str = "User 1"):
     if not trades:
         return {"success": True, "count": 0}
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         cursor = conn.cursor()
         for t in trades:
             cursor.execute("""
@@ -1891,7 +2002,7 @@ def save_trades(payload: dict, user: str = "User 1"):
 def get_trades_history(user: str = "User 1"):
     """Get all historical trades for a specific user ordered by entry time descending."""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM trades WHERE user = ? ORDER BY id DESC", (user,))
@@ -1908,7 +2019,7 @@ def delete_trade(trade_id: int, password: str = None, user: str = "User 1"):
     if password != DELETE_PASSWORD:
         raise HTTPException(status_code=403, detail="Unauthorized: Incorrect delete password.")
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         cursor = conn.cursor()
         cursor.execute("DELETE FROM trades WHERE id = ? AND user = ?", (trade_id, user))
         conn.commit()
@@ -1917,11 +2028,42 @@ def delete_trade(trade_id: int, password: str = None, user: str = "User 1"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class StatePayload(BaseModel):
+    value: str
+
+@app.get("/api/state/{key}")
+def get_state(key: str):
+    """Retrieve frontend state by key."""
+    try:
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM frontend_state WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {"success": True, "key": key, "value": row[0]}
+        return {"success": False, "error": "Key not found"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/state/{key}")
+def save_state(key: str, payload: StatePayload):
+    """Save/update frontend state by key."""
+    try:
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
+        cursor = conn.cursor()
+        cursor.execute("INSERT OR REPLACE INTO frontend_state (key, value) VALUES (?, ?)", (key, payload.value))
+        conn.commit()
+        conn.close()
+        return {"success": True, "key": key}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/market/ticks")
 def get_market_ticks(symbol: str, expiry: str = None, strike: float = None, limit: int = 1000):
     """Retrieve market ticks from database for a specific symbol/strike/expiry."""
     try:
-        conn = sqlite3.connect(DB_FILE)
+        conn = sqlite3.connect(DB_FILE, timeout=30.0)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         
@@ -1959,6 +2101,7 @@ class AngelOneWSManager:
         self.is_connected = False
         self.lock = threading.Lock()
         self.reconnect_delay = 5
+        self.reconnecting = False
         
     def start(self, loop):
         self.loop = loop
@@ -1972,7 +2115,10 @@ class AngelOneWSManager:
             if not auth_token or not feed_token:
                 login_angel_one()
             if not auth_token or not feed_token:
-                print("[WS] Connection deferred: Login failed.")
+                print("[WS] Connection deferred: Login failed. Scheduling retry...")
+                if not self.reconnecting:
+                    self.reconnecting = True
+                    threading.Thread(target=self._reconnect_loop, daemon=True).start()
                 return
                 
             print("[WS] Initializing SmartWebSocketV2 connection...")
@@ -2012,14 +2158,20 @@ class AngelOneWSManager:
         print(f"[WS] Streaming connection closed: {args}")
         self.is_connected = False
         # Trigger reconnect
-        threading.Thread(target=self._reconnect_loop, daemon=True).start()
+        with self.lock:
+            if not self.reconnecting:
+                self.reconnecting = True
+                threading.Thread(target=self._reconnect_loop, daemon=True).start()
         
     def _reconnect_loop(self):
         time.sleep(self.reconnect_delay)
-        if not self.is_connected:
-            print(f"[WS] Retrying streaming connection (delay={self.reconnect_delay}s)...")
-            self.reconnect_delay = min(self.reconnect_delay * 2, 60)
-            self.connect_ws()
+        with self.lock:
+            self.reconnecting = False
+            if self.is_connected:
+                return
+        print(f"[WS] Retrying streaming connection (delay={self.reconnect_delay}s)...")
+        self.reconnect_delay = min(self.reconnect_delay * 2, 60)
+        self.connect_ws()
             
     def resubscribe_all(self):
         by_exchange = {}
@@ -2167,6 +2319,22 @@ async def dispatch_price_update(token: str, exchange_type: int, price: float):
                 
             if updated:
                 await send_box_update(ws, sub)
+                if sub.last_spot_price > 0 and sub.last_ce_price > 0 and sub.last_pe_price > 0 and sub.resolved_strike and sub.resolved_expiry:
+                    synth = sub.resolved_strike + sub.last_ce_price - sub.last_pe_price
+                    diff = synth - sub.last_spot_price
+                    loop = asyncio.get_running_loop()
+                    loop.run_in_executor(
+                        None,
+                        save_market_tick,
+                        sub.symbol,
+                        sub.resolved_strike,
+                        sub.resolved_expiry,
+                        sub.last_spot_price,
+                        sub.last_ce_price,
+                        sub.last_pe_price,
+                        round(synth, 2),
+                        round(diff, 2)
+                    )
 
 async def resolve_and_subscribe_options(sub: BoxSubscription, spot_price: float):
     if sub.ce_token and sub.option_exchange_type:
@@ -2208,8 +2376,25 @@ async def resolve_and_subscribe_options(sub: BoxSubscription, spot_price: float)
             except:
                 sub.lot_size = 0
                 
-            sub.last_ce_price = live_price_cache.get(sub.ce_token, 0.0)
-            sub.last_pe_price = live_price_cache.get(sub.pe_token, 0.0)
+            ce_price = live_price_cache.get(sub.ce_token, 0.0)
+            pe_price = live_price_cache.get(sub.pe_token, 0.0)
+            
+            if ce_price <= 0.0 or pe_price <= 0.0:
+                ce_exch = ce["exch_seg"]
+                initial_prices = await loop.run_in_executor(
+                    None, get_bulk_ltp, {ce_exch: [sub.ce_token, sub.pe_token]}
+                )
+                if ce_price <= 0.0:
+                    ce_price = initial_prices.get(sub.ce_token, 0.0)
+                    if ce_price > 0.0:
+                        live_price_cache[sub.ce_token] = ce_price
+                if pe_price <= 0.0:
+                    pe_price = initial_prices.get(sub.pe_token, 0.0)
+                    if pe_price > 0.0:
+                        live_price_cache[sub.pe_token] = pe_price
+                        
+            sub.last_ce_price = ce_price
+            sub.last_pe_price = pe_price
             
             ws_manager.subscribe(sub.option_exchange_type, sub.ce_token)
             ws_manager.subscribe(sub.option_exchange_type, sub.pe_token)

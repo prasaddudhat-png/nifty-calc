@@ -267,6 +267,68 @@
                 <a href="settings.html" class="flex gap-2 items-center bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(255,255,255,0.15)] border border-transparent hover:border-[rgba(255,255,255,0.4)] text-gray-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
                     <i class="ph ph-gear"></i> Settings
                 </a>
+                
+                <!-- Watch Widget relative dropdown wrapper -->
+                <div class="relative inline-block text-left">
+                    <button onclick="toggleWidgetMenu(event)" class="flex gap-2 items-center bg-[rgba(124,58,237,0.1)] hover:bg-[rgba(124,58,237,0.2)] border border-[#7c3aed]/40 hover:border-[#7c3aed] text-purple-400 px-3 py-1.5 rounded-lg transition font-medium text-sm cursor-pointer" id="widgetMenuBtn">
+                        <i class="ph ph-screencast"></i> Watch Widget
+                    </button>
+                    <div id="widgetDropdownMenu" class="hidden absolute right-0 mt-2 w-80 bg-[#1b1429] border border-[#2d2640] rounded-xl shadow-2xl z-[1000] p-2 flex flex-col gap-1">
+                        <div class="px-3 py-1.5 border-b border-[#2d2640] mb-1">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Watch Widget Mode</span>
+                            <span class="text-[9px] text-gray-500">Keep system clock & P/D on screen</span>
+                        </div>
+                        
+                        <!-- Option 1: Native HTML PiP with Fallback -->
+                        <button onclick="launchPipWidget(event)" class="w-full text-left px-3 py-2 rounded-lg hover:bg-indigo-600/20 text-white flex items-start gap-2.5 transition cursor-pointer">
+                            <div class="mt-0.5 bg-indigo-500/10 p-1.5 rounded text-indigo-400">
+                                <i class="ph ph-screencast text-base"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold">Always-On-Top Window (HTML)</div>
+                                <div class="text-[9px] text-gray-400 mt-0.5">Floats on top, interactive. Chrome/Edge (localhost/HTTPS) only. Falls back to Video PiP.</div>
+                            </div>
+                        </button>
+                        
+                        <!-- Option 2: Video PiP Always-on-top -->
+                        <button onclick="launchVideoPip(event)" class="w-full text-left px-3 py-2 rounded-lg hover:bg-amber-600/20 text-white flex items-start gap-2.5 transition cursor-pointer">
+                            <div class="mt-0.5 bg-amber-500/10 p-1.5 rounded text-amber-400">
+                                <i class="ph ph-projector-screen text-base"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold">Always-On-Top (Video PiP)</div>
+                                <div class="text-[9px] text-gray-400 mt-0.5">Floats on top, read-only. Works on Firefox, Safari, and LAN IP.</div>
+                            </div>
+                        </button>
+                        
+                        <!-- Option 3: Standard Popup Window -->
+                        <button onclick="launchStandardPopupWidget(event)" class="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-600/20 text-white flex items-start gap-2.5 transition cursor-pointer">
+                            <div class="mt-0.5 bg-blue-500/10 p-1.5 rounded text-blue-400">
+                                <i class="ph ph-browser text-base"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold">Standard Popup Window</div>
+                                <div class="text-[9px] text-gray-400 mt-0.5">Normal browser popup. Interactive, but does not stay on top.</div>
+                            </div>
+                        </button>
+                        
+                        <!-- Option 4: In-Page Floating Panel -->
+                        <button onclick="launchInPageWidget(event)" class="w-full text-left px-3 py-2 rounded-lg hover:bg-purple-600/20 text-white flex items-start gap-2.5 transition cursor-pointer">
+                            <div class="mt-0.5 bg-purple-500/10 p-1.5 rounded text-purple-400">
+                                <i class="ph ph-cards text-base"></i>
+                            </div>
+                            <div>
+                                <div class="text-xs font-bold">In-Page Floating Panel</div>
+                                <div class="text-[9px] text-gray-400 mt-0.5">Draggable widget inside this browser page.</div>
+                            </div>
+                        </button>
+                        
+                        <!-- LAN Help Box -->
+                        <div class="mt-1.5 p-2 bg-purple-950/40 border border-[#7c3aed]/20 rounded-lg text-[8px] text-purple-300 leading-normal">
+                            <strong class="text-purple-200">Chrome LAN Tip:</strong> To enable interactive HTML Always-On-Top on other PCs on your network, open <code class="bg-[#1b1429] px-1 py-0.5 rounded text-amber-400">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>, add this site's IP (e.g. <span class="text-amber-400 select-all" id="lanIpTip">http://localhost:8080</span>), enable the flag, and relaunch.
+                        </div>
+                    </div>
+                </div>
 
             </div>
             <div class="text-right">
@@ -308,6 +370,9 @@
                                placeholder="NIFTY, RELIANCE..." value="NIFTY" autocomplete="off" spellcheck="false">
                         <button id="symbolGoBtn0" class="symbol-go-btn" onclick="startBox(0)">
                             <i class="ph ph-play-circle"></i> Go
+                        </button>
+                        <button class="bg-[#ef4444]/10 hover:bg-[#ef4444]/20 border border-[#ef4444]/30 text-[#ef4444] rounded-lg p-2 text-sm flex items-center justify-center transition" onclick="closeBox(0)" title="Close Box">
+                            <i class="ph ph-x-circle text-lg"></i>
                         </button>
                     </div>
 
@@ -476,6 +541,9 @@
                         <button id="symbolGoBtn1" class="symbol-go-btn" onclick="startBox(1)">
                             <i class="ph ph-play-circle"></i> Go
                         </button>
+                        <button class="bg-[#ef4444]/10 hover:bg-[#ef4444]/20 border border-[#ef4444]/30 text-[#ef4444] rounded-lg p-2 text-sm flex items-center justify-center transition" onclick="closeBox(1)" title="Close Box">
+                            <i class="ph ph-x-circle text-lg"></i>
+                        </button>
                     </div>
 
                     <!-- Status Badge -->
@@ -642,6 +710,9 @@
                                placeholder="TCS, FINNIFTY..." value="" autocomplete="off" spellcheck="false">
                         <button id="symbolGoBtn2" class="symbol-go-btn" onclick="startBox(2)">
                             <i class="ph ph-play-circle"></i> Go
+                        </button>
+                        <button class="bg-[#ef4444]/10 hover:bg-[#ef4444]/20 border border-[#ef4444]/30 text-[#ef4444] rounded-lg p-2 text-sm flex items-center justify-center transition" onclick="closeBox(2)" title="Close Box">
+                            <i class="ph ph-x-circle text-lg"></i>
                         </button>
                     </div>
 
@@ -1040,6 +1111,42 @@
         </div>
     </div>
 
+    <!-- Draggable In-Page Watch Widget -->
+    <div id="inPageWidget" class="hidden fixed bottom-6 right-6 w-80 bg-[#150f22] border border-[#2d2640] rounded-2xl shadow-2xl z-[9999] overflow-hidden transition-all duration-300">
+        <!-- Header with Drag Handle & Controls -->
+        <div id="inPageWidgetHeader" class="bg-[#1c1429] px-4 py-2.5 flex justify-between items-center cursor-move border-b border-[#2d2640] select-none">
+            <div class="flex items-center gap-2">
+                <i class="ph ph-dots-six-vertical text-purple-400 text-lg cursor-grab"></i>
+                <span class="text-xs font-bold text-gray-300 uppercase tracking-wider">Live Watcher</span>
+            </div>
+            <div class="flex gap-2.5">
+                <button onclick="minimizeInPageWidget(event)" class="text-gray-400 hover:text-white text-xs p-1 cursor-pointer" title="Minimize/Expand">
+                    <i id="inPageWidgetMinIcon" class="ph ph-minus"></i>
+                </button>
+                <button onclick="toggleInPageWidget(event)" class="text-gray-400 hover:text-red-400 text-xs p-1 cursor-pointer" title="Close">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Widget Body -->
+        <div id="inPageWidgetBody" class="p-4 flex flex-col gap-4">
+            <!-- Clock -->
+            <div class="flex justify-between items-center bg-[#0b0714] border border-[#2d2640] rounded-xl px-4 py-2.5">
+                <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Live Clock</span>
+                <span id="widget-clock" class="font-mono text-xl font-bold text-[#facc15] drop-shadow-[0_0_8px_rgba(250,204,21,0.25)]">--:--:--</span>
+            </div>
+            
+            <!-- Divider -->
+            <div class="border-t border-[#2d2640] my-0.5"></div>
+            
+            <!-- Rows -->
+            <div id="widget-rows" class="flex flex-col gap-2.5">
+                <div class="text-gray-500 text-xs text-center py-4">No active symbols</div>
+            </div>
+        </div>
+    </div>
+
         <script>
             // ═══════════════════════════════════════════════════════════
             //  PER-BOX STATE: each box is fully independent
@@ -1067,6 +1174,52 @@
             let wsReconnectTimer = null;
             let wsReconnectDelay = 1000;
 
+            // ─── Network/Host Settings ───
+            const rawHost = window.location.hostname || 'localhost';
+            const host = (rawHost === 'localhost' || rawHost === '[::1]' || !rawHost) ? '127.0.0.1' : rawHost;
+            const protocol = window.location.protocol;
+            const port = window.location.port;
+            const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+            const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+            const _tradeApiBase = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
+            let currentUser = 'pra'; // Loaded dynamically from StateStorage
+
+            // ─── StateStorage Backend Persistence Utility ───
+            const StateStorage = {
+                async get(key, defaultValue = null) {
+                    try {
+                        const res = await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`);
+                        const data = await res.json();
+                        if (data.success && data.value !== undefined) {
+                            return JSON.parse(data.value);
+                        }
+                    } catch(e) {
+                        console.warn(`[StateStorage] Failed to get '${key}' from backend, using localStorage fallback:`, e);
+                    }
+                    try {
+                        const val = localStorage.getItem(key);
+                        return val ? JSON.parse(val) : defaultValue;
+                    } catch(e) {
+                        return defaultValue;
+                    }
+                },
+                async set(key, value) {
+                    try {
+                        localStorage.setItem(key, JSON.stringify(value));
+                    } catch(e) {
+                        console.warn(`[StateStorage] Failed to write '${key}' to localStorage:`, e);
+                    }
+                    try {
+                        await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ value: JSON.stringify(value) })
+                        });
+                    } catch(e) {
+                        console.warn(`[StateStorage] Failed to sync '${key}' to backend:`, e);
+                    }
+                }
+            };
 
             // ─── LocalStorage Persistence Helpers ───
             // Key is symbol-only so multi-day data persists across page reloads
@@ -1081,69 +1234,152 @@
             }
 
             let visibleBoxes = 1;
-            function addNextBox() {
-                if (visibleBoxes < 3) {
-                    el(`resultBox${visibleBoxes}`).classList.remove('hidden');
-                    visibleBoxes++;
-                    
-                    const grid = el('calculatorsGrid');
-                    if (visibleBoxes === 2) grid.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mb-4';
-                    if (visibleBoxes === 3) grid.className = 'grid grid-cols-1 lg:grid-cols-3 gap-6 w-full mb-4';
-                    
-                    if (visibleBoxes >= 3) {
-                        el('addBoxBtn').classList.add('hidden');
+
+            function updateGridLayout() {
+                let visibleCount = 0;
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    const box = el(`resultBox${i}`);
+                    if (box && !box.classList.contains('hidden')) {
+                        visibleCount++;
+                    }
+                }
+                visibleBoxes = visibleCount;
+                
+                const grid = el('calculatorsGrid');
+                if (grid) {
+                    if (visibleCount === 1) {
+                        grid.className = 'grid grid-cols-1 lg:grid-cols-1 gap-6 w-full mb-4';
+                    } else if (visibleCount === 2) {
+                        grid.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6 w-full mb-4';
+                    } else if (visibleCount === 3) {
+                        grid.className = 'grid grid-cols-1 lg:grid-cols-3 gap-6 w-full mb-4';
+                    } else {
+                        grid.className = 'grid grid-cols-1 gap-6 w-full mb-4';
+                    }
+                }
+                
+                const addBoxBtn = el('addBoxBtn');
+                if (addBoxBtn) {
+                    if (visibleCount < 3) {
+                        addBoxBtn.classList.remove('hidden');
+                    } else {
+                        addBoxBtn.classList.add('hidden');
                     }
                 }
             }
 
+            function addNextBox() {
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    const box = el(`resultBox${i}`);
+                    if (box && box.classList.contains('hidden')) {
+                        box.classList.remove('hidden');
+                        updateGridLayout();
+                        saveBoxConfig();
+                        break;
+                    }
+                }
+            }
+
+            function closeBox(idx) {
+                // Stop box processes
+                stopBox(idx);
+                
+                // Clear state
+                boxSymbol[idx] = '';
+                el(`symbolInput${idx}`).value = '';
+                boxHistory[idx] = [];
+                boxExpiryMap[idx] = {};
+                boxActiveExpiry[idx] = null;
+                rebuildChartDatasets(idx);
+                
+                // Hide box container
+                el(`resultBox${idx}`).classList.add('hidden');
+                
+                // Update grid layout and save
+                updateGridLayout();
+                saveBoxConfig();
+                
+                // Update watch widgets in real-time
+                if (typeof updateWidgetUI === 'function') {
+                    updateWidgetUI();
+                }
+            }
+
             function saveBoxData(idx) {
-                const sym = boxSymbol[idx];
-                if (!sym || boxHistory[idx].length === 0) return;
-                try {
-                    // Trim to last 7 days of data to prevent unbounded growth
-                    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-                    const trimmed = boxHistory[idx].filter(p => p.time >= cutoff);
-                    boxHistory[idx] = trimmed;
-                    const key = getChartKey(sym);
-                    localStorage.setItem(key, JSON.stringify(trimmed));
-                } catch(e) { /* quota exceeded, ignore */ }
+                // Done on SQLite backend now to prevent localStorage blocking/freezing browser thread.
             }
             function loadBoxData(symbol) {
-                try {
-                    // Try new symbol-only key first
-                    const key = getChartKey(symbol);
-                    let data = localStorage.getItem(key);
-                    if (data) return JSON.parse(data);
+                return null; // Always fetch ticks from backend SQLite
+            }
 
-                    // Migrate from old date-specific keys (check last 7 days)
-                    let merged = [];
-                    for (let i = 0; i < 7; i++) {
-                        const d = new Date();
-                        d.setDate(d.getDate() - i);
-                        const oldKey = getOldDateKey(symbol, d);
-                        const oldData = localStorage.getItem(oldKey);
-                        if (oldData) {
-                            try {
-                                const parsed = JSON.parse(oldData);
-                                if (Array.isArray(parsed)) merged = merged.concat(parsed);
-                                localStorage.removeItem(oldKey); // Clean up old key
-                            } catch(e) {}
+            async function saveBoxConfig() {
+                const config = [];
+                let visibleCount = 0;
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    const symbol = el(`symbolInput${i}`).value.trim().toUpperCase();
+                    const strike = el(`strikeInput${i}`).value.trim();
+                    const expirySelect = el(`expirySelect${i}`);
+                    const expiry = expirySelect ? expirySelect.value : '';
+                    const visible = !el(`resultBox${i}`).classList.contains('hidden');
+                    if (visible) visibleCount++;
+                    config.push({ idx: i, symbol, strike, expiry, visible });
+                }
+                await StateStorage.set('autocalc_box_config', {
+                    visibleBoxes: visibleCount,
+                    boxes: config
+                });
+            }
+
+            async function loadBoxConfig() {
+                try {
+                    const config = await StateStorage.get('autocalc_box_config');
+                    if (config && Array.isArray(config.boxes)) {
+                        for (let i = 0; i < NUM_BOXES; i++) {
+                            const box = config.boxes[i];
+                            if (!box) continue;
+
+                            const container = el(`resultBox${i}`);
+                            if (box.visible) {
+                                container.classList.remove('hidden');
+                            } else {
+                                container.classList.add('hidden');
+                            }
+
+                            el(`symbolInput${i}`).value = box.symbol || '';
+                            el(`strikeInput${i}`).value = box.strike || '';
+
+                            if (box.symbol) {
+                                boxSymbol[i] = box.symbol;
+                                if (box.expiry) {
+                                    const sel = el(`expirySelect${i}`);
+                                    if (sel) {
+                                        sel.innerHTML = '';
+                                        const opt = document.createElement('option');
+                                        opt.value = box.expiry;
+                                        opt.text = formatExpiryDate(box.expiry);
+                                        sel.appendChild(opt);
+                                        sel.value = box.expiry;
+                                        sel.style.display = 'inline-block';
+                                    }
+                                }
+                                startBox(i);
+                            }
                         }
+                        updateGridLayout();
+                    } else {
+                        startBox(0);
+                        updateGridLayout();
                     }
-                    if (merged.length > 0) {
-                        // Deduplicate by time and sort
-                        const seen = new Set();
-                        merged = merged.filter(p => {
-                            if (seen.has(p.time)) return false;
-                            seen.add(p.time);
-                            return true;
-                        }).sort((a, b) => a.time - b.time);
-                        // Save under new key
-                        localStorage.setItem(key, JSON.stringify(merged));
-                        return merged;
-                    }
-                    return null;
-                } catch(e) { return null; }
+                } catch (e) {
+                    console.error("Failed to load box config:", e);
+                    startBox(0);
+                    updateGridLayout();
+                }
+                
+                // Initialize widget content on startup
+                if (typeof updateWidgetUI === 'function') {
+                    updateWidgetUI();
+                }
             }
 
             // Alert state per box — Upside & Downside monitors
@@ -1306,12 +1542,7 @@
             // Trade Book — synced to backend server (shared across LAN)
             let tradeBook = [];
             let _tradeSaveTimer = null;
-            const host = window.location.hostname || 'localhost';
-            const protocol = window.location.protocol;
-            const port = window.location.port;
-            const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-            const _tradeApiBase = isDev ? `http://${host}:8000` : '';
-            let currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
+            currentUser = localStorage.getItem('autocalc_current_user') || 'pra';
 
             function loadTradeBook() {
                 // Clear local memory first to prevent leakage from previous user
@@ -1369,7 +1600,7 @@
                 if (!validUsers.includes(user)) user = 'pra';
                 
                 currentUser = user;
-                localStorage.setItem('autocalc_current_user', currentUser);
+                StateStorage.set('autocalc_current_user', currentUser);
                 
                 // Update switcher buttons UI active classes
                 validUsers.forEach(u => {
@@ -1994,10 +2225,150 @@
                 document.body.removeChild(link);
             }
 
+            // ─── SPIKE FILTER UTILITIES ───
+            function filterSpikesFromArray(ticks) {
+                if (ticks.length < 3) return ticks;
+                
+                const cleaned = [...ticks];
+                const JUMP_THRESHOLD = 15.0;
+                const REVERT_THRESHOLD = 4.0;
+                const MAX_LOOKAHEAD = 4;
+                
+                let i = 1;
+                while (i < cleaned.length) {
+                    const prevStable = cleaned[i - 1];
+                    const jumpTick = cleaned[i];
+                    const jumpDiff = jumpTick.diff - prevStable.diff;
+                    
+                    if (Math.abs(jumpDiff) > JUMP_THRESHOLD) {
+                        let revertedIndex = -1;
+                        const limit = Math.min(cleaned.length, i + 1 + MAX_LOOKAHEAD);
+                        for (let k = i; k < limit; k++) {
+                            if (Math.abs(cleaned[k].diff - prevStable.diff) <= REVERT_THRESHOLD) {
+                                revertedIndex = k;
+                                break;
+                            }
+                        }
+                        
+                        if (revertedIndex !== -1) {
+                            const spikeCount = revertedIndex - i;
+                            cleaned.splice(i, spikeCount);
+                            continue;
+                        }
+                    }
+                    i++;
+                }
+                return cleaned;
+            }
+
+            function checkAndCleanSpikes(h) {
+                if (h.length < 3) return false;
+                
+                const JUMP_THRESHOLD = 15.0;
+                const REVERT_THRESHOLD = 4.0;
+                const MAX_LOOKAHEAD = 4;
+                
+                const startIdx = h.length - 1;
+                const endIdx = Math.max(1, h.length - 2 - MAX_LOOKAHEAD);
+                
+                for (let i = startIdx; i >= endIdx; i--) {
+                    const prevStable = h[i - 1];
+                    const jumpTick = h[i];
+                    const jumpDiff = jumpTick.diff - prevStable.diff;
+                    
+                    if (Math.abs(jumpDiff) > JUMP_THRESHOLD) {
+                        const ticksAfter = h.slice(i); 
+                        
+                        let revertedIndex = -1;
+                        for (let j = 0; j < ticksAfter.length; j++) {
+                            const current = ticksAfter[j];
+                            if (Math.abs(current.diff - prevStable.diff) <= REVERT_THRESHOLD) {
+                                revertedIndex = i + j;
+                                break;
+                            }
+                        }
+                        
+                        if (revertedIndex !== -1) {
+                            const spikeCount = revertedIndex - i;
+                            if (spikeCount > 0) {
+                                console.log(`[Spike Filter] Detected spike of length ${spikeCount} starting at tick ${i}. Ticks:`, h.slice(i, revertedIndex));
+                                h.splice(i, spikeCount);
+                                return true;
+                            }
+                        } else {
+                            if (ticksAfter.length > MAX_LOOKAHEAD) {
+                                break; // Verified real trend shift
+                            }
+                        }
+                    }
+                }
+                return false;
+            }
+
+            function pushTickWithSpikeFilter(idx, tick) {
+                const h = boxHistory[idx];
+                h.push(tick);
+                const spikeRemoved = checkAndCleanSpikes(h);
+                
+                // Limit in-memory history to last 1500 ticks to prevent memory bloat and Chart.js slowdowns
+                if (h.length > 1500) {
+                    h.shift(); // Remove oldest tick to keep memory and rendering lightweight
+                }
+                
+                return spikeRemoved;
+            }
+
+            function processNewTick(idx, tick) {
+                const spikeRemoved = pushTickWithSpikeFilter(idx, tick);
+                
+                const expiry = tick.expiry || 'unknown';
+                let needsRebuild = spikeRemoved;
+
+                if (boxActiveExpiry[idx] !== null && boxActiveExpiry[idx] !== expiry) {
+                    boxActiveExpiry[idx] = expiry;
+                    boxShowAllExpiries[idx] = false;
+                    updateShowAllBtn(idx);
+                    needsRebuild = true;
+                } else if (boxActiveExpiry[idx] === null) {
+                    boxActiveExpiry[idx] = expiry;
+                }
+
+                if (boxExpiryMap[idx][expiry] === undefined) {
+                    needsRebuild = true;
+                }
+
+                if (needsRebuild) {
+                    rebuildChartDatasets(idx);
+                } else {
+                    const dsIdx = boxExpiryMap[idx][expiry];
+                    const dsData = boxChart[idx].data.datasets[dsIdx].data;
+                    const currentXVal = toMarketX(tick.time);
+                    if (dsData.length > 0) {
+                        const prevPt = dsData[dsData.length - 1];
+                        const prevXVal = prevPt.x;
+                        let lastValidX = prevXVal;
+                        for (let k = dsData.length - 1; k >= 0; k--) {
+                            if (dsData[k].y !== null) {
+                                lastValidX = dsData[k].x;
+                                break;
+                            }
+                        }
+                        const day1 = Math.floor(lastValidX / MKT_DURATION_MIN);
+                        const day2 = Math.floor(currentXVal / MKT_DURATION_MIN);
+                        if (day1 !== day2) {
+                            dsData.push({ x: (lastValidX + currentXVal) / 2, y: null });
+                        }
+                    }
+                    dsData.push({ x: currentXVal, y: tick.diff, _realTime: tick.time });
+                    boxChart[idx].update();
+                }
+
+                // Auto-save to localStorage every 10 points
+                if (boxHistory[idx].length % 10 === 0) saveBoxData(idx);
+            }
+
             async function loadTicksFromDB(symbol, idx) {
-                // First try to load from localStorage as instant fallback
-                const saved = loadBoxData(symbol) || [];
-                boxHistory[idx] = saved;
+                boxHistory[idx] = [];
                 
                 try {
                     // Fetch last 1500 ticks from DB to populate chart
@@ -2016,23 +2387,14 @@
                             diff: t.premium_discount
                         }));
                         
-                        // Merge database history and localStorage history, keeping unique times
-                        const merged = [...dbTicks];
-                        saved.forEach(s => {
-                            // If tick is not already in merged list (within 1 second tolerance), add it
-                            if (!merged.some(m => Math.abs(m.time - s.time) < 1000)) {
-                                merged.push(s);
-                            }
-                        });
-                        
-                        // Sort chronologically
-                        merged.sort((a, b) => a.time - b.time);
+                        // Filter out spikes
+                        const cleaned = filterSpikesFromArray(dbTicks);
                         
                         // Keep last 1500 elements to optimize browser rendering
-                        if (merged.length > 1500) {
-                            boxHistory[idx] = merged.slice(merged.length - 1500);
+                        if (cleaned.length > 1500) {
+                            boxHistory[idx] = cleaned.slice(cleaned.length - 1500);
                         } else {
-                            boxHistory[idx] = merged;
+                            boxHistory[idx] = cleaned;
                         }
                     }
                 } catch (e) {
@@ -2051,8 +2413,11 @@
                 rebuildChartDatasets(idx);
             }
 
-            switchUser(currentUser, true);
-            loadTradeBook();
+            // Load user asynchronously from backend, falling back to localStorage
+            StateStorage.get('autocalc_current_user', currentUser).then(user => {
+                switchUser(user, true);
+                loadTradeBook();
+            });
 
             // Auto-close expired OPEN trades
             function autoCloseExpiredTrades() {
@@ -2778,6 +3143,7 @@
                         pollBox(idx);
                     }
                 });
+                saveBoxConfig();
             }
 
             function stopBox(idx) {
@@ -2800,6 +3166,7 @@
                     }
                     pollBox(idx);
                 }
+                saveBoxConfig();
             }
 
             async function pollBox(idx) {
@@ -2817,7 +3184,7 @@
                         const timeInSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
                         
                         if (timeInSec >= 33300 && timeInSec <= 55800) {
-                            boxHistory[idx].push({
+                            processNewTick(idx, {
                                 time: currentTime,
                                 spot: data.underlying,
                                 call: data.call_price,
@@ -2827,34 +3194,6 @@
                                 expiry: data.expiry,
                                 diff: parseFloat(diff.toFixed(2))
                             });
-
-                            const expiry = data.expiry || 'unknown';
-                            if (boxActiveExpiry[idx] !== null && boxActiveExpiry[idx] !== expiry) {
-                                boxActiveExpiry[idx] = expiry;
-                                boxShowAllExpiries[idx] = false;
-                                updateShowAllBtn(idx);
-                                rebuildChartDatasets(idx);
-                            } else if (boxActiveExpiry[idx] === null) {
-                                boxActiveExpiry[idx] = expiry;
-                            }
-
-                            if (boxExpiryMap[idx][expiry] === undefined) {
-                                rebuildChartDatasets(idx);
-                            } else {
-                                const dsIdx = boxExpiryMap[idx][expiry];
-                                const dsData = boxChart[idx].data.datasets[dsIdx].data;
-                                const currentXVal = toMarketX(currentTime);
-                                if (dsData.length > 0) {
-                                    const prevXVal = dsData[dsData.length - 1].x;
-                                    const day1 = Math.floor(prevXVal / MKT_DURATION_MIN);
-                                    const day2 = Math.floor(currentXVal / MKT_DURATION_MIN);
-                                    if (day1 !== day2) {
-                                        dsData.push({ x: (prevXVal + currentXVal) / 2, y: null });
-                                    }
-                                }
-                                dsData.push({ x: currentXVal, y: parseFloat(diff.toFixed(2)), _realTime: currentTime });
-                                boxChart[idx].update();
-                            }
                         }
                     } else {
                         setBoxStatus(idx, 'error', `Error: ${data ? data.error : 'Unknown'}`);
@@ -2981,6 +3320,11 @@
 
                 // Update trade list with live P/L
                 renderTradeDetails(idx, data);
+
+                // Update watch widgets in real time
+                if (typeof updateWidgetUI === 'function') {
+                    updateWidgetUI();
+                }
             }
 
             // ─── Box Polling Loop ───
@@ -2990,9 +3334,22 @@
                     return;
                 }
                 
-                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsHost = isDev ? `${host}:8000` : window.location.host;
-                const wsUrl = `${wsProtocol}//${wsHost}/ws/live`;
+                let wsUrl;
+                if (_tradeApiBase) {
+                    try {
+                        const urlObj = new URL(_tradeApiBase);
+                        const wsProtocol = urlObj.protocol === 'https:' ? 'wss:' : 'ws:';
+                        wsUrl = `${wsProtocol}//${urlObj.host}/ws/live`;
+                    } catch (e) {
+                        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                        const wsHost = isDev ? `${host}:8000` : window.location.host;
+                        wsUrl = `${wsProtocol}//${wsHost}/ws/live`;
+                    }
+                } else {
+                    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                    const wsHost = isDev ? `${host}:8000` : window.location.host;
+                    wsUrl = `${wsProtocol}//${wsHost}/ws/live`;
+                }
                 
                 console.log(`[WS] Connecting to ${wsUrl}...`);
                 setGlobalStatus('connecting', 'Connecting...');
@@ -3035,8 +3392,7 @@
                                 const timeInSec = hh * 3600 + mm * 60 + ss;
                                 // 09:15:00 = 33300 sec, 15:30:00 = 55800 sec
                                 if (timeInSec >= 33300 && timeInSec <= 55800) {
-                                    // Add to history
-                                    boxHistory[idx].push({
+                                    processNewTick(idx, {
                                         time: currentTime,
                                         spot: data.underlying,
                                         call: data.call_price,
@@ -3046,51 +3402,6 @@
                                         expiry: data.expiry,
                                         diff: parseFloat(diff.toFixed(2))
                                     });
-
-                                    // Route to correct expiry dataset
-                                    const expiry = data.expiry || 'unknown';
-
-                                    // Detect expiry change — switch chart view to new expiry
-                                    if (boxActiveExpiry[idx] !== null && boxActiveExpiry[idx] !== expiry) {
-                                        boxActiveExpiry[idx] = expiry;
-                                        boxShowAllExpiries[idx] = false;
-                                        updateShowAllBtn(idx);
-                                        rebuildChartDatasets(idx);
-                                    } else if (boxActiveExpiry[idx] === null) {
-                                        boxActiveExpiry[idx] = expiry;
-                                    }
-
-                                    if (boxExpiryMap[idx][expiry] === undefined) {
-                                        // New expiry detected — rebuild chart datasets
-                                        rebuildChartDatasets(idx);
-                                    } else {
-                                        const dsIdx = boxExpiryMap[idx][expiry];
-                                        const dsData = boxChart[idx].data.datasets[dsIdx].data;
-                                        const currentXVal = toMarketX(currentTime);
-                                        if (dsData.length > 0) {
-                                            const prevPt = dsData[dsData.length - 1];
-                                            const prevXVal = prevPt.x;
-                                            // Filter out existing null points to get the last valid coordinates
-                                            let lastValidX = prevXVal;
-                                            for (let k = dsData.length - 1; k >= 0; k--) {
-                                                if (dsData[k].y !== null) {
-                                                    lastValidX = dsData[k].x;
-                                                    break;
-                                                }
-                                            }
-                                            const day1 = Math.floor(lastValidX / MKT_DURATION_MIN);
-                                            const day2 = Math.floor(currentXVal / MKT_DURATION_MIN);
-                                            if (day1 !== day2) {
-                                                // Day boundary detected! Insert a null point to break the line.
-                                                dsData.push({ x: (lastValidX + currentXVal) / 2, y: null });
-                                            }
-                                        }
-                                        dsData.push({ x: currentXVal, y: parseFloat(diff.toFixed(2)), _realTime: currentTime });
-                                        boxChart[idx].update();
-                                    }
-
-                                    // Auto-save to localStorage every 10 points
-                                    if (boxHistory[idx].length % 10 === 0) saveBoxData(idx);
                                 }
 
                                 // Update global clock
@@ -3437,6 +3748,11 @@
                     btnEl.innerText = 'Active ✅';
                     btnEl.className = 'bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded transition';
                 }
+                
+                // Update widgets instantly when alert targets change
+                if (typeof updateWidgetUI === 'function') {
+                    updateWidgetUI();
+                }
             }
 
             function checkAlert(idx, currentDiff) {
@@ -3536,8 +3852,8 @@
             }
             lastUpdateTime.innerText = "Ready";
 
-            // Auto-start Box 1 with NIFTY
-            startBox(0);
+            // Auto-start boxes from backend config
+            loadBoxConfig();
 
             function enterLivePos(idx) {
                 const data = lastFetchData[idx];
@@ -3845,6 +4161,800 @@
                 }
             });
 
+            // ═══════════════════════════════════════════════════════════
+            //  LIVE WATCH WIDGET SYSTEM (PiP & Draggable Panel)
+            // ═══════════════════════════════════════════════════════════
+            let pipWindow = null;
+            let fallbackPopup = null;
+            let pipClockInterval = null;
+            let isWidgetMinimized = false;
+            let lastPipHeight = 0;
+            let videoPipActive = false;
+            let videoPipElement = null;
+            let videoPipCanvas = null;
+            let canvasPipInterval = null;
+
+            function getDesiredPipHeight(activeData) {
+                let height = 130;
+                if (activeData.length === 0) {
+                    height += 50;
+                } else {
+                    activeData.forEach(item => {
+                        const hasTargets = (item.upTarget !== null || item.downTarget !== null);
+                        height += hasTargets ? 86 : 70;
+                    });
+                }
+                return height;
+            }
+
+            function toggleWidgetMenu(e) {
+                if (e) e.stopPropagation();
+                const menu = document.getElementById('widgetDropdownMenu');
+                if (menu) {
+                    menu.classList.toggle('hidden');
+                }
+            }
+
+            // Close dropdown when clicking outside
+            window.addEventListener('click', (e) => {
+                const menu = document.getElementById('widgetDropdownMenu');
+                const btn = document.getElementById('widgetMenuBtn');
+                if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+
+            // Gathers active symbols, expiries, and P/D values from DOM
+            function getWidgetData() {
+                const data = [];
+                for (let i = 0; i < NUM_BOXES; i++) {
+                    const container = document.getElementById(`resultBox${i}`);
+                    const isVisible = container && !container.classList.contains('hidden');
+                    const symbol = boxSymbol[i];
+                    
+                    if (isVisible && symbol) {
+                        const expirySelect = document.getElementById(`expirySelect${i}`);
+                        const expiryLabel = document.getElementById(`expiryLabel${i}`);
+                        let expiryText = '';
+                        if (expirySelect && expirySelect.style.display !== 'none') {
+                            expiryText = expirySelect.options[expirySelect.selectedIndex] ? expirySelect.options[expirySelect.selectedIndex].text : '';
+                        } else if (expiryLabel) {
+                            expiryText = expiryLabel.innerText;
+                        }
+                        
+                        const diffResult = document.getElementById(`diffResult${i}`);
+                        const pdValue = diffResult ? diffResult.innerText : '-';
+                        
+                        let pdColor = '#8b85a1';
+                        if (diffResult) {
+                            if (diffResult.classList.contains('text-[#10b981]') || diffResult.className.includes('green') || pdValue.startsWith('+')) {
+                                pdColor = '#10b981';
+                            } else if (diffResult.classList.contains('text-[#ef4444]') || diffResult.className.includes('red') || pdValue.startsWith('-')) {
+                                pdColor = '#ef4444';
+                            }
+                        }
+                        
+                        // Active Alert Targets
+                        const upTarget = boxAlertUpActive[i] ? boxAlertUpTarget[i] : null;
+                        const downTarget = boxAlertDownActive[i] ? boxAlertDownTarget[i] : null;
+                        const isHit = boxAlertUpTriggered[i] || boxAlertDownTriggered[i];
+                        
+                        data.push({
+                            index: i,
+                            symbol: symbol,
+                            expiry: expiryText,
+                            pd: pdValue,
+                            pdColor: pdColor,
+                            upTarget: upTarget,
+                            downTarget: downTarget,
+                            isHit: isHit
+                        });
+                    }
+                }
+                return data;
+            }
+
+            // Launch Always-On-Top Window (Document Picture-in-Picture or Fallback Popup)
+            // Launch Always-On-Top Window (Document Picture-in-Picture with Video PiP Fallback)
+            async function launchPipWidget(e) {
+                if (e) e.stopPropagation();
+                
+                const menu = document.getElementById('widgetDropdownMenu');
+                if (menu) menu.classList.add('hidden');
+                
+                if (pipWindow) {
+                    pipWindow.focus();
+                    return;
+                }
+                
+                // Close other windows/PiPs if active
+                if (fallbackPopup && !fallbackPopup.closed) {
+                    try { fallbackPopup.close(); } catch(err) {}
+                    fallbackPopup = null;
+                }
+                if (videoPipActive && videoPipElement) {
+                    try { document.exitPictureInPicture(); } catch(err) {}
+                    videoPipActive = false;
+                }
+                
+                const useDocumentPip = ('documentPictureInPicture' in window);
+                const activeData = getWidgetData();
+                const desiredHeight = getDesiredPipHeight(activeData);
+                lastPipHeight = desiredHeight;
+                
+                if (useDocumentPip) {
+                    try {
+                        pipWindow = await window.documentPictureInPicture.requestWindow({
+                            width: 330,
+                            height: desiredHeight
+                        });
+                        setupPopupWindow(pipWindow, true);
+                    } catch (err) {
+                        console.warn("Failed to open Document PiP window, falling back to Video PiP:", err);
+                        launchVideoPip(null);
+                    }
+                } else {
+                    console.log("Document PiP not supported. Falling back to Video PiP...");
+                    launchVideoPip(null);
+                }
+            }
+
+            // Launch Always-On-Top Video PiP (Canvas Stream)
+            async function launchVideoPip(e) {
+                if (e) e.stopPropagation();
+                
+                const menu = document.getElementById('widgetDropdownMenu');
+                if (menu) menu.classList.add('hidden');
+                
+                if (videoPipActive && videoPipElement && document.pictureInPictureElement === videoPipElement) {
+                    return;
+                }
+                
+                try {
+                    // Close other windows/PiPs if active
+                    if (pipWindow) {
+                        try { pipWindow.close(); } catch(err) {}
+                        pipWindow = null;
+                    }
+                    if (fallbackPopup && !fallbackPopup.closed) {
+                        try { fallbackPopup.close(); } catch(err) {}
+                        fallbackPopup = null;
+                    }
+
+                    // Create canvas if not exists
+                    if (!videoPipCanvas) {
+                        videoPipCanvas = document.createElement('canvas');
+                        videoPipCanvas.width = 330 * 2; // High-DPI 2x scaling
+                        videoPipCanvas.height = 420 * 2;
+                        videoPipCanvas.style.width = '330px';
+                        videoPipCanvas.style.height = '420px';
+                    }
+                    
+                    // Create hidden video element if not exists
+                    if (!videoPipElement) {
+                        videoPipElement = document.createElement('video');
+                        videoPipElement.muted = true;
+                        videoPipElement.playsInline = true;
+                        videoPipElement.style.display = 'none';
+                        document.body.appendChild(videoPipElement);
+                        
+                        videoPipElement.addEventListener('leavepictureinpicture', () => {
+                            videoPipActive = false;
+                            if (canvasPipInterval) {
+                                clearInterval(canvasPipInterval);
+                                canvasPipInterval = null;
+                            }
+                            stopWidgetClockTimer();
+                            updateWidgetBtnUI();
+                        });
+                    }
+                    
+                    // Draw initial frame
+                    renderWidgetToCanvas();
+                    
+                    // Stream canvas to video
+                    videoPipStream = videoPipCanvas.captureStream(10); // 10 FPS
+                    videoPipElement.srcObject = videoPipStream;
+                    await videoPipElement.play();
+                    
+                    // Request Picture-in-Picture
+                    await videoPipElement.requestPictureInPicture();
+                    
+                    videoPipActive = true;
+                    
+                    // Setup draw loop
+                    if (canvasPipInterval) clearInterval(canvasPipInterval);
+                    canvasPipInterval = setInterval(() => {
+                        renderWidgetToCanvas();
+                    }, 100); // 100ms render rate for smooth clock and alert pulses
+                    
+                    startWidgetClockTimer();
+                    updateWidgetBtnUI();
+                } catch (err) {
+                    console.error("Failed to launch Video PiP:", err);
+                    alert("Failed to launch Always-On-Top Video PiP: " + err.message);
+                }
+            }
+
+            // Render Widget UI to High-DPI Canvas
+            function renderWidgetToCanvas() {
+                if (!videoPipCanvas) return;
+                const ctx = videoPipCanvas.getContext('2d');
+                if (!ctx) return;
+                
+                ctx.save();
+                ctx.clearRect(0, 0, videoPipCanvas.width, videoPipCanvas.height);
+                
+                // Scale coordinate space for high-DPI rendering
+                ctx.scale(2, 2);
+                
+                // Background fill
+                ctx.fillStyle = "#0b0714";
+                ctx.fillRect(0, 0, 330, 420);
+                
+                const activeData = getWidgetData();
+                
+                // 1. Draw Clock Header
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('en-IN', { hour12: false });
+                
+                ctx.fillStyle = "#8b85a1";
+                ctx.font = "bold 9px 'Inter', system-ui, -apple-system, sans-serif";
+                ctx.fillText("LIVE WATCH CLOCK", 16, 26);
+                
+                // Large monospace clock with glow
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = "rgba(250, 204, 21, 0.35)";
+                ctx.fillStyle = "#facc15";
+                ctx.font = "bold 19px monospace, Courier New";
+                ctx.textAlign = "right";
+                ctx.fillText(timeStr, 330 - 16, 28);
+                
+                ctx.shadowBlur = 0;
+                ctx.textAlign = "left";
+                
+                // Separator line
+                ctx.strokeStyle = "#2d2640";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(16, 42);
+                ctx.lineTo(330 - 16, 42);
+                ctx.stroke();
+                
+                // 2. Draw active symbol cards
+                let rowY = 54;
+                const rowHeight = 58;
+                const rowGap = 8;
+                
+                if (activeData.length === 0) {
+                    ctx.fillStyle = "#8b85a1";
+                    ctx.font = "12px 'Inter', system-ui, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillText("No active symbols", 165, 120);
+                    ctx.textAlign = "left";
+                } else {
+                    activeData.slice(0, 5).forEach((item) => {
+                        const x = 16;
+                        const y = rowY;
+                        const w = 330 - 32;
+                        const h = rowHeight;
+                        const r = 8;
+                        
+                        let bgFill = "#150f22";
+                        let borderStroke = "#2d2640";
+                        let borderWidth = 1;
+                        
+                        if (item.isHit) {
+                            // Pulsing amber hit background
+                            const pulse = Math.abs(Math.sin(Date.now() / 250));
+                            bgFill = `rgba(245, 158, 11, ${0.08 + pulse * 0.25})`;
+                            borderStroke = "#f59e0b";
+                            borderWidth = 1.5;
+                        }
+                        
+                        // Draw rounded rect card
+                        ctx.fillStyle = bgFill;
+                        ctx.strokeStyle = borderStroke;
+                        ctx.lineWidth = borderWidth;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(x + r, y);
+                        ctx.lineTo(x + w - r, y);
+                        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+                        ctx.lineTo(x + w, y + h - r);
+                        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+                        ctx.lineTo(x + r, y + h);
+                        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+                        ctx.lineTo(x, y + r);
+                        ctx.quadraticCurveTo(x, y, x + r, y);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                        
+                        let textX = x + 10;
+                        
+                        // Bell alert icon
+                        if (item.isHit) {
+                            ctx.fillStyle = "#fbbf24";
+                            ctx.font = "11px 'Inter', sans-serif";
+                            ctx.fillText("🔔", textX, y + 20);
+                            textX += 16;
+                        }
+                        
+                        // Symbol text
+                        ctx.fillStyle = "#ffffff";
+                        ctx.font = "bold 11px 'Inter', system-ui, sans-serif";
+                        ctx.fillText(item.symbol, textX, y + 20);
+                        
+                        // Expiry text
+                        ctx.fillStyle = "#8b85a1";
+                        ctx.font = "9px 'Inter', system-ui, sans-serif";
+                        ctx.fillText(item.expiry || '--', x + 10, y + 34);
+                        
+                        // Targets
+                        if (item.upTarget !== null || item.downTarget !== null) {
+                            ctx.fillStyle = "#fbbf24";
+                            ctx.font = "8px 'Inter', system-ui, sans-serif";
+                            const targets = [];
+                            if (item.upTarget !== null) targets.push(`≥${item.upTarget.toFixed(1)}`);
+                            if (item.downTarget !== null) targets.push(`≤${item.downTarget.toFixed(1)}`);
+                            ctx.fillText(`T: ${targets.join(', ')}`, x + 10, y + 46);
+                        }
+                        
+                        // Right-aligned P/D Value with glow
+                        ctx.fillStyle = item.pdColor;
+                        ctx.font = "bold 20px monospace, Courier New";
+                        ctx.textAlign = "right";
+                        
+                        ctx.shadowBlur = 6;
+                        ctx.shadowColor = item.pdColor.includes('185') ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)";
+                        ctx.fillText(item.pd, x + w - 10, y + 36);
+                        
+                        ctx.shadowBlur = 0;
+                        ctx.textAlign = "left";
+                        
+                        rowY += rowHeight + rowGap;
+                    });
+                }
+                
+                // 3. Draw Footer status bar
+                ctx.strokeStyle = "#2d2640";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(16, 380);
+                ctx.lineTo(330 - 16, 380);
+                ctx.stroke();
+                
+                ctx.fillStyle = "#8b85a1";
+                ctx.font = "9px 'Inter', system-ui, sans-serif";
+                ctx.fillText("Always-On-Top (Video PiP)", 16, 398);
+                
+                const parentStatusDot = document.getElementById('statusDot');
+                const parentStatusText = document.getElementById('statusText');
+                const dotColor = parentStatusDot ? window.getComputedStyle(parentStatusDot).backgroundColor : '#10b981';
+                const statusText = parentStatusText ? parentStatusText.innerText : 'Ready';
+                
+                ctx.fillStyle = dotColor;
+                ctx.beginPath();
+                ctx.arc(260, 394, 3, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.fillStyle = "#8b85a1";
+                ctx.font = "9px 'Inter', system-ui, sans-serif";
+                ctx.fillText(statusText, 268, 398);
+                
+                ctx.restore();
+            }
+
+            // Launch Standard Popup Window (Explicitly interactive popup mode)
+            function launchStandardPopupWidget(e) {
+                if (e) e.stopPropagation();
+                
+                const menu = document.getElementById('widgetDropdownMenu');
+                if (menu) menu.classList.add('hidden');
+                
+                if (fallbackPopup && !fallbackPopup.closed) {
+                    fallbackPopup.focus();
+                    return;
+                }
+                
+                // Close other windows/PiPs if active
+                if (pipWindow) {
+                    try { pipWindow.close(); } catch(err) {}
+                    pipWindow = null;
+                }
+                if (videoPipActive && videoPipElement) {
+                    try { document.exitPictureInPicture(); } catch(err) {}
+                    videoPipActive = false;
+                }
+                
+                const activeData = getWidgetData();
+                const desiredHeight = getDesiredPipHeight(activeData);
+                openFallbackPopup(desiredHeight);
+            }
+
+            function openFallbackPopup(height) {
+                const features = `width=330,height=${height},menubar=no,toolbar=no,location=no,status=no,resizable=yes`;
+                fallbackPopup = window.open("", "AutoCalcWatch", features);
+                if (!fallbackPopup) {
+                    alert("Popup blocked! Please allow popups for this site or use the In-Page widget.");
+                    launchInPageWidget();
+                    return;
+                }
+                setupPopupWindow(fallbackPopup, false);
+            }
+
+            function setupPopupWindow(win, isPip) {
+                // Copy stylesheets
+                [...document.styleSheets].forEach((styleSheet) => {
+                    try {
+                        const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
+                        const style = win.document.createElement('style');
+                        style.textContent = cssRules;
+                        win.document.head.appendChild(style);
+                    } catch (e) {
+                        const link = win.document.createElement('link');
+                        if (styleSheet.href) {
+                            link.rel = 'stylesheet';
+                            link.href = styleSheet.href;
+                            win.document.head.appendChild(link);
+                        }
+                    }
+                });
+                
+                // Inject alert style element for animation
+                const styleElement = win.document.createElement('style');
+                styleElement.textContent = `
+                    @keyframes alert-pulse {
+                        0% { background-color: rgba(245, 158, 11, 0.08); border-color: #d97706; box-shadow: 0 0 4px rgba(217,119,6,0.2); }
+                        50% { background-color: rgba(245, 158, 11, 0.35); border-color: #f59e0b; box-shadow: 0 0 14px rgba(245,158,11,0.5); }
+                        100% { background-color: rgba(245, 158, 11, 0.08); border-color: #d97706; box-shadow: 0 0 4px rgba(217,119,6,0.2); }
+                    }
+                    .pip-alert-row {
+                        animation: alert-pulse 1.2s infinite ease-in-out;
+                        border: 1.5px solid #f59e0b !important;
+                    }
+                `;
+                win.document.head.appendChild(styleElement);
+                
+                win.document.title = "Auto-Calc Watch";
+                
+                const body = win.document.body;
+                body.style.margin = "0";
+                body.style.padding = "16px";
+                body.style.background = "#0b0714";
+                body.style.color = "#ffffff";
+                body.style.fontFamily = "'Inter', sans-serif";
+                body.style.overflow = "hidden";
+                
+                const footerText = isPip ? "Always-On-Top" : "Standard Popup";
+                
+                body.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:12px; height:100%; box-sizing:border-box;">
+                        <!-- Clock Section -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #2d2640; padding-bottom:10px;">
+                            <span style="font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em; color:#8b85a1; font-weight:700;">Live Clock</span>
+                            <span id="pip-clock" style="font-family:monospace; font-size:1.4rem; font-weight:700; color:#facc15; text-shadow:0 0 8px rgba(250,204,21,0.25);">--:--:--</span>
+                        </div>
+                        <!-- P/D Rows Section -->
+                        <div id="pip-rows" style="display:flex; flex-direction:column; gap:8px; flex-grow:1;">
+                            <div style="color:#8b85a1; font-size:0.8rem; text-align:center; padding:16px 0;">No active symbols</div>
+                        </div>
+                        <!-- Footer Status -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid #2d2640; padding-top:8px; font-size:0.6rem; color:#8b85a1; margin-top:auto;">
+                            <span>${footerText}</span>
+                            <span id="pip-status" style="display:flex; align-items:center; gap:4px;">
+                                <span style="width:5px; height:5px; border-radius:50%; background:#10b981; display:inline-block; box-shadow:0 0 4px #10b981;"></span> Ready
+                            </span>
+                        </div>
+                    </div>
+                `;
+                
+                if (isPip) {
+                    win.addEventListener('pagehide', () => {
+                        pipWindow = null;
+                        stopWidgetClockTimer();
+                        updateWidgetBtnUI();
+                    });
+                } else {
+                    win.addEventListener('beforeunload', () => {
+                        fallbackPopup = null;
+                        stopWidgetClockTimer();
+                        updateWidgetBtnUI();
+                    });
+                }
+                
+                updateWidgetUI();
+                startWidgetClockTimer();
+                updateWidgetBtnUI();
+            }
+
+            // Update UI Button states in the header nav
+            function updateWidgetBtnUI() {
+                const btn = document.getElementById('widgetMenuBtn');
+                if (!btn) return;
+                
+                const isPipActive = !!pipWindow || (fallbackPopup && !fallbackPopup.closed) || videoPipActive;
+                const inPageWidget = document.getElementById('inPageWidget');
+                const isInPageActive = inPageWidget && !inPageWidget.classList.contains('hidden');
+                
+                if (isPipActive || isInPageActive) {
+                    btn.classList.add('bg-purple-600', 'text-white', 'border-purple-500');
+                    btn.classList.remove('bg-[rgba(124,58,237,0.1)]', 'text-purple-400', 'border-[#7c3aed]/40');
+                    btn.innerHTML = `<i class="ph ph-screencast animate-pulse"></i> Watching...`;
+                } else {
+                    btn.classList.remove('bg-purple-600', 'text-white', 'border-purple-500');
+                    btn.classList.add('bg-[rgba(124,58,237,0.1)]', 'text-purple-400', 'border-[#7c3aed]/40');
+                    btn.innerHTML = `<i class="ph ph-screencast"></i> Watch Widget`;
+                }
+            }
+
+            // Launch In-Page Draggable Widget Panel
+            function launchInPageWidget(e) {
+                if (e) e.stopPropagation();
+                
+                const menu = document.getElementById('widgetDropdownMenu');
+                if (menu) menu.classList.add('hidden');
+                
+                const widget = document.getElementById('inPageWidget');
+                if (widget) {
+                    widget.classList.remove('hidden');
+                    if (!widget.style.top && !widget.style.left) {
+                        widget.style.bottom = '24px';
+                        widget.style.right = '24px';
+                    }
+                    
+                    const header = document.getElementById('inPageWidgetHeader');
+                    makeElementDraggable(widget, header);
+                    
+                    updateWidgetUI();
+                    startWidgetClockTimer();
+                    updateWidgetBtnUI();
+                }
+            }
+
+            function toggleInPageWidget(e) {
+                if (e) e.stopPropagation();
+                const widget = document.getElementById('inPageWidget');
+                if (widget) {
+                    widget.classList.add('hidden');
+                    stopWidgetClockTimer();
+                    updateWidgetBtnUI();
+                }
+            }
+
+            function minimizeInPageWidget(e) {
+                if (e) e.stopPropagation();
+                isWidgetMinimized = !isWidgetMinimized;
+                
+                const body = document.getElementById('inPageWidgetBody');
+                const widget = document.getElementById('inPageWidget');
+                const minIcon = document.getElementById('inPageWidgetMinIcon');
+                const minBtn = minIcon.parentElement;
+                
+                if (isWidgetMinimized) {
+                    body.classList.add('hidden');
+                    widget.style.width = '190px';
+                    minIcon.className = 'ph ph-squares-four';
+                    minBtn.title = "Expand";
+                } else {
+                    body.classList.remove('hidden');
+                    widget.style.width = '320px';
+                    minIcon.className = 'ph ph-minus';
+                    minBtn.title = "Minimize";
+                    updateWidgetUI();
+                }
+            }
+
+            // Drag mechanics helper
+            function makeElementDraggable(elmnt, dragHandle) {
+                var pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+                if (dragHandle) {
+                    dragHandle.onmousedown = dragMouseDown;
+                } else {
+                    elmnt.onmousedown = dragMouseDown;
+                }
+                
+                function dragMouseDown(e) {
+                    e = e || window.event;
+                    if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('a')) {
+                        return;
+                    }
+                    e.preventDefault();
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    document.onmouseup = closeDragElement;
+                    document.onmousemove = elementDrag;
+                }
+                
+                function elementDrag(e) {
+                    e = e || window.event;
+                    e.preventDefault();
+                    pos1 = pos3 - e.clientX;
+                    pos2 = pos4 - e.clientY;
+                    pos3 = e.clientX;
+                    pos4 = e.clientY;
+                    
+                    elmnt.style.bottom = 'auto';
+                    elmnt.style.right = 'auto';
+                    
+                    elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                    elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+                    
+                    const rect = elmnt.getBoundingClientRect();
+                    if (rect.top < 0) {
+                        elmnt.style.top = "0px";
+                    }
+                    if (rect.left < 0) {
+                        elmnt.style.left = "0px";
+                    }
+                    if (rect.bottom > window.innerHeight) {
+                        elmnt.style.top = (window.innerHeight - rect.height) + "px";
+                    }
+                    if (rect.right > window.innerWidth) {
+                        elmnt.style.left = (window.innerWidth - rect.width) + "px";
+                    }
+                }
+                
+                function closeDragElement() {
+                    document.onmouseup = null;
+                    document.onmousemove = null;
+                }
+            }
+
+            // Unified Timer & Refreshes
+            function startWidgetClockTimer() {
+                if (pipClockInterval) return;
+                updateWidgetClock();
+                pipClockInterval = setInterval(updateWidgetClock, 1000);
+            }
+
+            function stopWidgetClockTimer() {
+                const inPageWidget = document.getElementById('inPageWidget');
+                const isInPageActive = inPageWidget && !inPageWidget.classList.contains('hidden');
+                const isPopupActive = (fallbackPopup && !fallbackPopup.closed);
+                
+                if (!pipWindow && !isPopupActive && !isInPageActive && !videoPipActive) {
+                    if (pipClockInterval) {
+                        clearInterval(pipClockInterval);
+                        pipClockInterval = null;
+                    }
+                }
+            }
+
+            function updateWidgetClock() {
+                const timeStr = new Date().toLocaleTimeString('en-IN', { hour12: false });
+                
+                if (pipWindow) {
+                    const clockEl = pipWindow.document.getElementById('pip-clock');
+                    if (clockEl) clockEl.innerText = timeStr;
+                }
+                if (fallbackPopup && !fallbackPopup.closed) {
+                    const clockEl = fallbackPopup.document.getElementById('pip-clock');
+                    if (clockEl) clockEl.innerText = timeStr;
+                }
+                
+                const inPageClock = document.getElementById('widget-clock');
+                const inPageWidget = document.getElementById('inPageWidget');
+                if (inPageClock && inPageWidget && !inPageWidget.classList.contains('hidden')) {
+                    inPageClock.innerText = timeStr;
+                }
+            }
+
+            function updateWidgetUI() {
+                const activeData = getWidgetData();
+                
+                // 1. In-page widget
+                const inPageWidget = document.getElementById('inPageWidget');
+                if (inPageWidget && !inPageWidget.classList.contains('hidden') && !isWidgetMinimized) {
+                    const rowsEl = document.getElementById('widget-rows');
+                    if (rowsEl) {
+                        if (activeData.length === 0) {
+                            rowsEl.innerHTML = `<div class="text-gray-500 text-xs text-center py-4">No active symbols</div>`;
+                        } else {
+                            let html = '';
+                            activeData.forEach(item => {
+                                let targetHtml = '';
+                                if (item.upTarget !== null || item.downTarget !== null) {
+                                    const targets = [];
+                                    if (item.upTarget !== null) targets.push(`&ge; ${item.upTarget.toFixed(2)}`);
+                                    if (item.downTarget !== null) targets.push(`&le; ${item.downTarget.toFixed(2)}`);
+                                    targetHtml = `<span class="text-[9px] text-amber-500/80 mt-0.5 truncate" title="T: ${targets.join(', ')}">T: ${targets.join(', ')}</span>`;
+                                }
+                                
+                                const alertClass = item.isHit 
+                                    ? 'border-amber-500 bg-amber-500/10 animate-pulse' 
+                                    : 'border-[#2d2640] bg-[#0b0714]';
+                                const bellIcon = item.isHit ? '<span class="text-amber-500 animate-bounce mr-1">🔔</span>' : '';
+                                
+                                html += `
+                                    <div class="flex justify-between items-center border rounded-xl px-4 py-2.5 ${alertClass}">
+                                        <div class="flex flex-col min-w-0 mr-2">
+                                            <span class="font-bold text-xs text-white flex items-center truncate" title="${item.symbol}">${bellIcon}${item.symbol}</span>
+                                            <span class="text-[9px] text-gray-500 mt-0.5 truncate">${item.expiry || '--'}</span>
+                                            ${targetHtml}
+                                        </div>
+                                        <div class="font-mono text-3xl font-black shrink-0 whitespace-nowrap text-right ml-2" style="color: ${item.pdColor}">
+                                            ${item.pd}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            rowsEl.innerHTML = html;
+                        }
+                    }
+                }
+                
+                // 2. Update PiP window or Fallback Popup if active
+                const targetWindow = pipWindow || (fallbackPopup && !fallbackPopup.closed ? fallbackPopup : null);
+                if (targetWindow) {
+                    const desiredHeight = getDesiredPipHeight(activeData);
+                    if (desiredHeight !== lastPipHeight) {
+                        try {
+                            targetWindow.resizeTo(330, desiredHeight);
+                            lastPipHeight = desiredHeight;
+                        } catch (e) {
+                            console.log("Failed to resize window:", e);
+                        }
+                    }
+
+                    const pipRows = targetWindow.document.getElementById('pip-rows');
+                    const pipStatus = targetWindow.document.getElementById('pip-status');
+                    
+                    if (pipStatus) {
+                        const parentStatusDot = document.getElementById('statusDot');
+                        const parentStatusText = document.getElementById('statusText');
+                        const dotBg = parentStatusDot ? window.getComputedStyle(parentStatusDot).backgroundColor : '#8b85a1';
+                        const text = parentStatusText ? parentStatusText.innerText : 'Ready';
+                        
+                        pipStatus.innerHTML = `
+                            <span style="width:5px; height:5px; border-radius:50%; background:${dotBg}; display:inline-block; box-shadow:0 0 4px ${dotBg};"></span> ${text}
+                        `;
+                    }
+                    
+                    if (pipRows) {
+                        if (activeData.length === 0) {
+                            pipRows.innerHTML = `<div style="color:#8b85a1; font-size:0.8rem; text-align:center; padding:16px 0;">No active symbols</div>`;
+                        } else {
+                            let html = '';
+                            activeData.forEach(item => {
+                                let targetHtml = '';
+                                if (item.upTarget !== null || item.downTarget !== null) {
+                                    const targets = [];
+                                    if (item.upTarget !== null) targets.push(`&ge; ${item.upTarget.toFixed(2)}`);
+                                    if (item.downTarget !== null) targets.push(`&le; ${item.downTarget.toFixed(2)}`);
+                                    targetHtml = `<span style="font-size:0.65rem; color:#fbbf24; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="T: ${targets.join(', ')}">T: ${targets.join(', ')}</span>`;
+                                }
+                                
+                                const rowStyle = item.isHit 
+                                    ? 'class="pip-alert-row"' 
+                                    : 'style="background:#150f22; border:1px solid #2d2640;"';
+                                const bellIcon = item.isHit ? '<span style="color:#fbbf24; margin-right:4px; font-weight:bold;">🔔</span>' : '';
+                                
+                                html += `
+                                    <div ${rowStyle} style="display:flex; justify-content:space-between; align-items:center; border-radius:10px; padding:8px 12px; box-sizing:border-box;">
+                                        <div style="display:flex; flex-direction:column; min-width:0; margin-right:8px;">
+                                            <span style="font-weight:700; font-size:0.85rem; color:#ffffff; line-height:1.2; display:flex; align-items:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${item.symbol}">${bellIcon}${item.symbol}</span>
+                                            <span style="font-size:0.65rem; color:#8b85a1; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.expiry || '--'}</span>
+                                            ${targetHtml}
+                                        </div>
+                                        <div style="font-family:monospace; font-size:2.0rem; font-weight:900; color:${item.pdColor}; text-shadow:0 0 10px rgba(${item.pdColor.includes('185') ? '16,185,129' : '239,68,68'}, 0.3); flex-shrink:0; white-space:nowrap; text-align:right; margin-left:8px;">
+                                            ${item.pd}
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            pipRows.innerHTML = html;
+                        }
+                    }
+                }
+
+                // 3. Update Video PiP canvas rendering immediately if active
+                if (videoPipActive) {
+                    renderWidgetToCanvas();
+                }
+            }
+
             // ─── Fetch Server IP ───
             async function fetchServerIP() {
                 try {
@@ -3852,8 +4962,14 @@
                     const data = await res.json();
                     if (data.success && data.ip) {
                         const ipSpan = document.getElementById('serverIpDisplay');
-                        ipSpan.textContent = `LAN IP: ${data.ip}`;
-                        ipSpan.classList.remove('hidden');
+                        if (ipSpan) {
+                            ipSpan.textContent = `LAN IP: ${data.ip}`;
+                            ipSpan.classList.remove('hidden');
+                        }
+                        const tipSpan = document.getElementById('lanIpTip');
+                        if (tipSpan) {
+                            tipSpan.textContent = `http://${data.ip}:8080`;
+                        }
                     }
                 } catch (e) {
                     console.log('Could not fetch server IP', e);
