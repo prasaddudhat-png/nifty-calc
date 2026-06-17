@@ -1,0 +1,17 @@
+{
+  "name": "Nifty Arbitrage Tracker",
+  "short_name": "NiftyArb",
+  "description": "Live Arbitrage Tracker and Options Scanner",
+  "start_url": "/mobile.html",
+  "display": "standalone",
+  "background_color": "#0f0b15",
+  "theme_color": "#0f0b15",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Nifty Arbitrage App</title>
+    
+    <!-- PWA settings -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f0b15">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <!-- Google Fonts & Phosphor Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <style>
+        :root {
+            --bg-color: #0f0b15;
+            --nav-bg: rgba(23, 18, 33, 0.85);
+            --nav-border: rgba(43, 34, 60, 0.4);
+            --primary: #a78bfa;
+            --text-muted: #8b85a1;
+            --text-active: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #ffffff;
+        }
+
+        /* App Container */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding-bottom: calc(65px + env(safe-area-inset-bottom));
+        }
+
+        /* Content Frames */
+        .content-frame-container {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+        }
+
+        iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease-in-out;
+        }
+
+        iframe.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Bottom Tab Bar */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: calc(65px + env(safe-area-inset-bottom));
+            background: var(--nav-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid var(--nav-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: env(safe-area-inset-bottom);
+            z-index: 1000;
+        }
+
+        .nav-tab {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-decoration: none;
+            color: var(--text-muted);
+            font-family: 'Outfit', sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            gap: 4px;
+            transition: color 0.2s ease, transform 0.1s ease;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+        }
+
+        .nav-tab i {
+            font-size: 24px;
+            transition: transform 0.2s ease;
+        }
+
+        .nav-tab.active {
+            color: var(--primary);
+        }
+
+        .nav-tab.active i {
+            transform: translateY(-2px);
+            font-weight: bold;
+        }
+
+        /* Subtle click feedback scale */
+        .nav-tab:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <div class="content-frame-container">
+            <iframe id="calcFrame" src="index.html?mode=mobile" class="active"></iframe>
+            <iframe id="scannerFrame" src="scanner.html?mode=mobile"></iframe>
+            <iframe id="posFrame" src="position_calculator.html?mode=mobile"></iframe>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <button onclick="switchTab('calc')" id="tab_calc" class="nav-tab active">
+            <i class="ph ph-chart-line"></i>
+            <span>Auto-Calc</span>
+        </button>
+        <button onclick="switchTab('scanner')" id="tab_scanner" class="nav-tab">
+            <i class="ph ph-magnifying-glass"></i>
+            <span>Scanner</span>
+        </button>
+        <button onclick="switchTab('pos')" id="tab_pos" class="nav-tab">
+            <i class="ph ph-calculator"></i>
+            <span>Position Calc</span>
+        </button>
+    </nav>
+
+    <script>
+        // Tab switching logic
+        function switchTab(tabId) {
+            // Remove active classes
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('iframe').forEach(frame => frame.classList.remove('active'));
+            
+            // Set active tab
+            document.getElementById(`tab_${tabId}`).classList.add('active');
+            
+            // Set active iframe
+            let activeFrame;
+            if (tabId === 'calc') {
+                activeFrame = document.getElementById('calcFrame');
+            } else if (tabId === 'scanner') {
+                activeFrame = document.getElementById('scannerFrame');
+            } else if (tabId === 'pos') {
+                activeFrame = document.getElementById('posFrame');
+            }
+            
+            if (activeFrame) {
+                activeFrame.classList.add('active');
+                
+                // If the frame's document is already loaded, we can trigger any tab-specific refresh if needed
+                try {
+                    const contentWin = activeFrame.contentWindow;
+                    if (contentWin && typeof contentWin.onTabActive === 'function') {
+                        contentWin.onTabActive();
+                    }
+                } catch (e) {
+                    // Ignore cross-origin warnings if they occur
+                }
+            }
+        }
+
+        // Register Service Worker for PWA Offline / caching support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>

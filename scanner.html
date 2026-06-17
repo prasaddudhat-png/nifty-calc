@@ -545,6 +545,14 @@
             .detail-body { grid-template-columns: 1fr; }
             .detail-chart-area { border-left: none; border-top: 1px solid #2d2640; }
         }
+        body.iframe-mobile-mode .top-header {
+            display: none !important;
+        }
+        body.iframe-mobile-mode .scanner-container {
+            padding: 8px !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
     </style>
 </head>
 
@@ -685,6 +693,13 @@
     </div>
 
     <script>
+        // Check if loaded inside iframe / mobile mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const isMobileMode = urlParams.get('mode') === 'mobile' || window.self !== window.top;
+        if (isMobileMode) {
+            document.body.classList.add('iframe-mobile-mode');
+        }
+
         // Polyfill for AbortSignal.timeout (for compatibility with older browsers/webviews)
         if (typeof AbortSignal !== 'undefined' && !AbortSignal.timeout) {
             AbortSignal.timeout = function(ms) {

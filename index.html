@@ -218,6 +218,14 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        body.iframe-mobile-mode .top-bar {
+            display: none !important;
+        }
+        body.iframe-mobile-mode .calc-container {
+            padding: 8px !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+        }
     </style>
 </head>
 
@@ -1149,6 +1157,13 @@
     </div>
 
         <script>
+            // Check if loaded inside iframe / mobile mode
+            const urlParams = new URLSearchParams(window.location.search);
+            const isMobileMode = urlParams.get('mode') === 'mobile' || window.self !== window.top;
+            if (isMobileMode) {
+                document.body.classList.add('iframe-mobile-mode');
+            }
+
             // ═══════════════════════════════════════════════════════════
             //  PER-BOX STATE: each box is fully independent
             // ═══════════════════════════════════════════════════════════

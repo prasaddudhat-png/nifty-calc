@@ -45,6 +45,12 @@
         
         .positive { color: #34d399; }
         .negative { color: #f87171; }
+        body.iframe-mobile-mode .top-bar {
+            display: none !important;
+        }
+        body.iframe-mobile-mode body {
+            padding: 8px !important;
+        }
     </style>
 </head>
 <body>
@@ -298,6 +304,14 @@
 
         </div>
     </div>
+
+    <script>
+        // Check if loaded inside iframe / mobile mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const isMobileMode = urlParams.get('mode') === 'mobile' || window.self !== window.top;
+        if (isMobileMode) {
+            document.body.classList.add('iframe-mobile-mode');
+        }
 
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol;
