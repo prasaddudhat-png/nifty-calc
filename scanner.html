@@ -685,13 +685,31 @@
     </div>
 
     <script>
+        // Polyfill for AbortSignal.timeout (for compatibility with older browsers/webviews)
+        if (typeof AbortSignal !== 'undefined' && !AbortSignal.timeout) {
+            AbortSignal.timeout = function(ms) {
+                const controller = new AbortController();
+                setTimeout(() => controller.abort(), ms);
+                return controller.signal;
+            };
+        }
+
         // ─── Backend Auto-Detection ───
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol;
         const port = window.location.port;
         const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-        const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
-        const savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
+        let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+        let savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
+        if (savedBackendUrl && isLocal && savedBackendUrl.includes('railway.app')) {
+            localStorage.removeItem('nifty_calc_backend_url');
+            savedBackendUrl = null;
+        }
+        if (savedScannerUrl && isLocal && savedScannerUrl.includes('railway.app')) {
+            localStorage.removeItem('nifty_calc_scanner_url');
+            savedScannerUrl = null;
+        }
         const SCANNER_API = savedScannerUrl !== null ? savedScannerUrl : (isDev ? `http://${host}:8001` : ``);
         const FALLBACK_API = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : ``);
         let activeAPI = null;  // Will be set after detection
@@ -700,7 +718,9 @@
         const StateStorage = {
             async get(key, defaultValue = null) {
                 try {
-                    const res = await fetch(`${FALLBACK_API}/api/state/${encodeURIComponent(key)}`);
+                    const res = await fetch(`${FALLBACK_API}/api/state/${encodeURIComponent(key)}`, {
+                        signal: AbortSignal.timeout(1500)
+                    });
                     const data = await res.json();
                     if (data.success && data.value !== undefined) {
                         return JSON.parse(data.value);
@@ -725,7 +745,8 @@
                     await fetch(`${FALLBACK_API}/api/state/${encodeURIComponent(key)}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ value: JSON.stringify(value) })
+                        body: JSON.stringify({ value: JSON.stringify(value) }),
+                        signal: AbortSignal.timeout(1500)
                     });
                 } catch(e) {
                     console.warn(`[StateStorage] Failed to sync '${key}' to backend:`, e);

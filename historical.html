@@ -343,13 +343,28 @@
             try {
                 // Determine API base
                 const rawHost = window.location.hostname || 'localhost';
-                const host = (rawHost === 'localhost' || rawHost === '[::1]' || !rawHost) ? '127.0.0.1' : rawHost;
+                const host = (rawHost === '[::1]' || !rawHost) ? 'localhost' : rawHost;
                 const port = window.location.port;
                 const isDev = window.location.protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-                const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+                let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+                const isLocal = rawHost === 'localhost' || rawHost === '127.0.0.1' || rawHost.startsWith('192.168.') || rawHost.startsWith('10.') || rawHost.startsWith('172.');
+                if (savedBackendUrl && isLocal && savedBackendUrl.includes('railway.app')) {
+                    localStorage.removeItem('nifty_calc_backend_url');
+                    savedBackendUrl = null;
+                }
                 const API_BASE = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
-                
-                const res = await fetch(`${API_BASE}/api/market/historical?symbol=${encodeURIComponent(symbol)}`);
+                // ─── AbortSignal.timeout Polyfill ───
+                if (!AbortSignal.timeout) {
+                    AbortSignal.timeout = function(ms) {
+                        const controller = new AbortController();
+                        setTimeout(() => controller.abort(), ms);
+                        return controller.signal;
+                    };
+                }
+
+                const res = await fetch(`${API_BASE}/api/market/historical?symbol=${encodeURIComponent(symbol)}`, {
+                    signal: AbortSignal.timeout(3000)
+                });
                 const data = await res.json();
 
                 if (!data.success) {

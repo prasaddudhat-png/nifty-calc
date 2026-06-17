@@ -227,13 +227,23 @@
 
     <script>
         // Read custom backend/scanner server URLs from localStorage
-        const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
-        const savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
+        let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+        let savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
 
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol;
         const port = window.location.port;
         const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
+
+        if (savedBackendUrl && isLocal && savedBackendUrl.includes('railway.app')) {
+            localStorage.removeItem('nifty_calc_backend_url');
+            savedBackendUrl = null;
+        }
+        if (savedScannerUrl && isLocal && savedScannerUrl.includes('railway.app')) {
+            localStorage.removeItem('nifty_calc_scanner_url');
+            savedScannerUrl = null;
+        }
         
         let API_URL = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : ``);
         let SCANNER_API_URL = savedScannerUrl !== null ? savedScannerUrl : (isDev ? `http://${host}:8001` : ``);
@@ -257,9 +267,20 @@
             }, 3000);
         }
 
+        // ─── AbortSignal.timeout Polyfill ───
+        if (!AbortSignal.timeout) {
+            AbortSignal.timeout = function(ms) {
+                const controller = new AbortController();
+                setTimeout(() => controller.abort(), ms);
+                return controller.signal;
+            };
+        }
+
         async function loadSettings() {
             try {
-                const res = await fetch(`${API_URL}/api/config`);
+                const res = await fetch(`${API_URL}/api/config`, {
+                    signal: AbortSignal.timeout(1500)
+                });
                 if (!res.ok) throw new Error("Failed to load");
                 const data = await res.json();
                 
@@ -293,7 +314,8 @@
                 const res = await fetch(`${API_URL}/api/config`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: JSON.stringify(payload),
+                    signal: AbortSignal.timeout(2000)
                 });
                 const data = await res.json();
                 
@@ -302,7 +324,9 @@
                     
                     // 2. Tell Scanner Backend to Reload Config
                     try {
-                        await fetch(`${SCANNER_API_URL}/api/config/reload`);
+                        await fetch(`${SCANNER_API_URL}/api/config/reload`, {
+                            signal: AbortSignal.timeout(2000)
+                        });
                     } catch(se) {
                         console.warn("Scanner backend not running or couldn't reload", se);
                         // It's okay if scanner isn't running

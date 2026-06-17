@@ -97,6 +97,7 @@
         .status-live { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
         .status-fetching { background-color: #f59e0b; animation: pulse 1.5s infinite; }
         .status-error { background-color: #ef4444; }
+        .status-idle { background-color: #6b7280; box-shadow: 0 0 8px #6b7280; }
 
         @keyframes pulse {
             0% { opacity: 1; }
@@ -1176,19 +1177,35 @@
 
             // ─── Network/Host Settings ───
             const rawHost = window.location.hostname || 'localhost';
-            const host = (rawHost === 'localhost' || rawHost === '[::1]' || !rawHost) ? '127.0.0.1' : rawHost;
+            const host = (rawHost === '[::1]' || !rawHost) ? 'localhost' : rawHost;
             const protocol = window.location.protocol;
             const port = window.location.port;
             const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
-            const savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+            let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+            const isLocal = rawHost === 'localhost' || rawHost === '127.0.0.1' || rawHost.startsWith('192.168.') || rawHost.startsWith('10.') || rawHost.startsWith('172.');
+            if (savedBackendUrl && isLocal && savedBackendUrl.includes('railway.app')) {
+                localStorage.removeItem('nifty_calc_backend_url');
+                savedBackendUrl = null;
+            }
             const _tradeApiBase = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
             let currentUser = 'pra'; // Loaded dynamically from StateStorage
+
+            // ─── StateStorage Timeout Polyfill ───
+            if (!AbortSignal.timeout) {
+                AbortSignal.timeout = function(ms) {
+                    const controller = new AbortController();
+                    setTimeout(() => controller.abort(), ms);
+                    return controller.signal;
+                };
+            }
 
             // ─── StateStorage Backend Persistence Utility ───
             const StateStorage = {
                 async get(key, defaultValue = null) {
                     try {
-                        const res = await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`);
+                        const res = await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`, {
+                            signal: AbortSignal.timeout(1500)
+                        });
                         const data = await res.json();
                         if (data.success && data.value !== undefined) {
                             return JSON.parse(data.value);
@@ -1213,7 +1230,8 @@
                         await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ value: JSON.stringify(value) })
+                            body: JSON.stringify({ value: JSON.stringify(value) }),
+                            signal: AbortSignal.timeout(1500)
                         });
                     } catch(e) {
                         console.warn(`[StateStorage] Failed to sync '${key}' to backend:`, e);
@@ -2372,7 +2390,9 @@
                 
                 try {
                     // Fetch last 1500 ticks from DB to populate chart
-                    const res = await fetch(`${_tradeApiBase}/api/market/ticks?symbol=${encodeURIComponent(symbol)}&limit=1500`);
+                    const res = await fetch(`${_tradeApiBase}/api/market/ticks?symbol=${encodeURIComponent(symbol)}&limit=1500`, {
+                        signal: AbortSignal.timeout(2000)
+                    });
                     const result = await res.json();
                     if (result.success && Array.isArray(result.ticks) && result.ticks.length > 0) {
                         // Map database fields to frontend structure
@@ -2829,6 +2849,7 @@
                 if (type === 'live') statusDot.classList.add('status-live');
                 else if (type === 'error') statusDot.classList.add('status-error');
                 else if (type === 'fetching') statusDot.classList.add('status-fetching');
+                else if (type === 'idle') statusDot.classList.add('status-idle');
                 statusText.innerText = msg;
             }
 
@@ -3136,10 +3157,27 @@
                 const USE_WS = true;
                 
                 // Hydrate chart from backend database, then run connection
-                loadTicksFromDB(symbol, idx).then(() => {
-                    if (USE_WS) {
+                loadTicksFromDB(symbol, idx).then(async () => {
+                    // Fetch initial data via HTTP to populate UI immediately and avoid getting stuck in loading state (especially when market is closed)
+                    try {
+                        const data = await fetchSymbolData(symbol, idx);
+                        if (data && data.success) {
+                            lastFetchData[idx] = data;
+                            displayBoxResult(idx, data);
+                            setBoxStatus(idx, 'live', data.symbol);
+                            updateGlobalStatus();
+                        }
+                    } catch (e) {
+                        console.warn(`[Box${idx}] Failed to fetch initial data via HTTP:`, e);
+                    }
+
+                    if (typeof isHttpFallbackActive !== 'undefined' && isHttpFallbackActive) {
+                        boxFetching[idx] = true;
+                        pollBox(idx);
+                    } else if (USE_WS) {
                         sendSubscriptionRequest(idx);
                     } else {
+                        boxFetching[idx] = true;
                         pollBox(idx);
                     }
                 });
@@ -3177,6 +3215,7 @@
                         lastFetchData[idx] = data;
                         displayBoxResult(idx, data);
                         setBoxStatus(idx, 'live', data.symbol);
+                        updateGlobalStatus();
                         
                         const currentTime = Date.now();
                         const diff = data.premium_discount;
@@ -3328,6 +3367,25 @@
             }
 
             // ─── Box Polling Loop ───
+            let isHttpFallbackActive = false;
+            let wsFallbackTimer = null;
+
+            function switchToHttpPolling() {
+                if (isHttpFallbackActive) return;
+                isHttpFallbackActive = true;
+                console.log("[WS Fallback] Switching all boxes to HTTP polling...");
+                for (let idx = 0; idx < NUM_BOXES; idx++) {
+                    if (boxSymbol[idx]) {
+                        boxFetching[idx] = true;
+                        if (boxTimer && boxTimer[idx]) {
+                            clearTimeout(boxTimer[idx]);
+                            boxTimer[idx] = null;
+                        }
+                        pollBox(idx);
+                    }
+                }
+            }
+
             // ─── WebSocket connection management ───
             function connectLiveWebSocket() {
                 if (liveSocket && (liveSocket.readyState === WebSocket.CONNECTING || liveSocket.readyState === WebSocket.OPEN)) {
@@ -3354,11 +3412,38 @@
                 console.log(`[WS] Connecting to ${wsUrl}...`);
                 setGlobalStatus('connecting', 'Connecting...');
                 
+                // Clear any existing fallback timer
+                if (wsFallbackTimer) clearTimeout(wsFallbackTimer);
+                // Trigger fallback to HTTP polling if WebSocket fails to open in 3.5s
+                wsFallbackTimer = setTimeout(() => {
+                    if (!liveSocket || liveSocket.readyState !== WebSocket.OPEN) {
+                        console.warn("[WS] Connection timed out. Falling back to HTTP polling.");
+                        switchToHttpPolling();
+                    }
+                }, 3500);
+
                 liveSocket = new WebSocket(wsUrl);
                 
                 liveSocket.onopen = () => {
+                    if (wsFallbackTimer) {
+                        clearTimeout(wsFallbackTimer);
+                        wsFallbackTimer = null;
+                    }
                     console.log('[WS] Connected to backend live data stream.');
                     setGlobalStatus('idle', 'Ready');
+                    
+                    // If we were on HTTP fallback, turn it off and let WS take over
+                    if (isHttpFallbackActive) {
+                        isHttpFallbackActive = false;
+                        for (let idx = 0; idx < NUM_BOXES; idx++) {
+                            boxFetching[idx] = false;
+                            if (boxTimer && boxTimer[idx]) {
+                                clearTimeout(boxTimer[idx]);
+                                boxTimer[idx] = null;
+                            }
+                        }
+                    }
+
                     wsReconnectDelay = 1000;
                     if (wsReconnectTimer) {
                         clearTimeout(wsReconnectTimer);
@@ -3419,13 +3504,25 @@
                 liveSocket.onclose = () => {
                     console.log('[WS] Connection closed.');
                     setGlobalStatus('offline', 'Disconnected');
-                    // Set all active boxes to disconnected
-                    for (let idx = 0; idx < NUM_BOXES; idx++) {
-                        if (boxSymbol[idx]) {
-                            setBoxStatus(idx, 'error', 'Disconnected from server');
+                    
+                    if (wsFallbackTimer) {
+                        clearTimeout(wsFallbackTimer);
+                        wsFallbackTimer = null;
+                    }
+                    
+                    // If we are not already on HTTP fallback, trigger it on close
+                    switchToHttpPolling();
+
+                    if (!isHttpFallbackActive) {
+                        // Set all active boxes to disconnected
+                        for (let idx = 0; idx < NUM_BOXES; idx++) {
+                            if (boxSymbol[idx]) {
+                                setBoxStatus(idx, 'error', 'Disconnected from server');
+                            }
                         }
                     }
-                    // Trigger reconnect
+
+                    // Trigger reconnect in the background
                     if (!wsReconnectTimer) {
                         wsReconnectTimer = setTimeout(() => {
                             wsReconnectTimer = null;
@@ -3438,6 +3535,11 @@
                 liveSocket.onerror = (err) => {
                     console.error('[WS] Socket error:', err);
                     liveSocket.close();
+                    if (wsFallbackTimer) {
+                        clearTimeout(wsFallbackTimer);
+                        wsFallbackTimer = null;
+                    }
+                    switchToHttpPolling();
                 };
             }
 
@@ -3447,6 +3549,7 @@
                 
                 if (!liveSocket || liveSocket.readyState !== WebSocket.OPEN) {
                     setBoxStatus(idx, 'loading', `Waiting for server connection...`);
+                    switchToHttpPolling();
                     return;
                 }
                 
@@ -3463,7 +3566,11 @@
                 
                 console.log(`[WS] Subscribing box ${idx} to ${symbol}`, payload);
                 liveSocket.send(JSON.stringify(payload));
-                setBoxStatus(idx, 'loading', `Subscribing ${symbol}...`);
+                
+                // Only show loading status if we don't already have live data for this symbol
+                if (!lastFetchData[idx] || lastFetchData[idx].symbol !== symbol) {
+                    setBoxStatus(idx, 'loading', `Subscribing ${symbol}...`);
+                }
             }
 
             // ─── Update Global Status Dot ───

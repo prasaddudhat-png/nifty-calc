@@ -1703,22 +1703,8 @@ def init_db():
         if 'user' not in columns:
             cursor.execute("ALTER TABLE trades ADD COLUMN user TEXT DEFAULT 'User 1'")
             print("Migration: Added user column to trades table.")
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS market_ticks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp INTEGER,
-                symbol TEXT,
-                strike REAL,
-                expiry TEXT,
-                underlying REAL,
-                call_price REAL,
-                put_price REAL,
-                synthetic_future REAL,
-                premium_discount REAL
-            )
-        """)
-        # Index on symbol/strike/expiry/timestamp to keep retrieval fast
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_market_ticks_query ON market_ticks (symbol, expiry, strike, timestamp DESC)")
+        # Disabled market_ticks table creation to prevent storage issues
+        pass
         
         # Table for frontend configurations / persistent UI state
         cursor.execute("""
@@ -1804,115 +1790,8 @@ def cleanup_old_ticks():
         print(f"Error during storage cleanup: {e}")
 
 def save_market_tick(symbol, strike, expiry, underlying, call_price, put_price, synthetic_future, premium_discount):
-    """Saves a single market price tick to the database, filtering out temporary price spikes."""
-    key = (symbol, expiry, strike)
-    now_ts = int(time.time() * 1000) # milliseconds
-    
-    # Throttle check using in-memory tracker
-    if key in last_saved_ticks:
-        last_ts, last_spot, last_ce, last_pe = last_saved_ticks[key]
-        # Throttle: if less than 2 seconds have passed AND prices haven't changed, skip DB write
-        if (now_ts - last_ts < 2000) and (underlying == last_spot) and (call_price == last_ce) and (put_price == last_pe):
-            return
-            
-    try:
-        conn = sqlite3.connect(DB_FILE, timeout=30.0)
-        cursor = conn.cursor()
-        
-        # Load history from DB if not already in memory
-        if key not in last_saved_ticks_history:
-            last_saved_ticks_history[key] = []
-            try:
-                cursor.execute("""
-                    SELECT id, timestamp, underlying, call_price, put_price, synthetic_future, premium_discount
-                    FROM market_ticks
-                    WHERE symbol = ? AND expiry = ? AND strike = ?
-                    ORDER BY timestamp DESC LIMIT 2
-                """, (symbol, expiry, strike))
-                rows = cursor.fetchall()
-                for row in reversed(rows):
-                    row_id, timestamp, spot, ce, pe, synth, pd = row
-                    tick_dict = {
-                        'timestamp': timestamp,
-                        'underlying': spot,
-                        'call_price': ce,
-                        'put_price': pe,
-                        'synthetic_future': synth,
-                        'premium_discount': pd
-                    }
-                    last_saved_ticks_history[key].append((row_id, tick_dict))
-            except Exception as db_err:
-                print(f"Error loading tick history from db for key {key}: {db_err}")
-        
-        # Insert the current tick
-        cursor.execute("""
-            INSERT INTO market_ticks (
-                timestamp, symbol, strike, expiry, underlying, call_price, put_price, synthetic_future, premium_discount
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (now_ts, symbol, strike, expiry, underlying, call_price, put_price, synthetic_future, premium_discount))
-        conn.commit()
-        inserted_id = cursor.lastrowid
-        
-        # Update history list
-        current_tick = {
-            'timestamp': now_ts,
-            'underlying': underlying,
-            'call_price': call_price,
-            'put_price': put_price,
-            'synthetic_future': synthetic_future,
-            'premium_discount': premium_discount
-        }
-        last_saved_ticks_history[key].append((inserted_id, current_tick))
-        
-        # Check for spike in the last saved tick history (with 4-tick lookahead)
-        h = last_saved_ticks_history[key]
-        if len(h) >= 3:
-            JUMP_THRESHOLD = 15.0
-            REVERT_THRESHOLD = 4.0
-            MAX_LOOKAHEAD = 4
-            
-            start_idx = len(h) - 1
-            end_idx = max(1, len(h) - 2 - MAX_LOOKAHEAD)
-            
-            for i in range(start_idx, end_idx - 1, -1):
-                prev_stable = h[i - 1][1]
-                jump_tick = h[i][1]
-                jump_diff = jump_tick['premium_discount'] - prev_stable['premium_discount']
-                
-                if abs(jump_diff) > JUMP_THRESHOLD:
-                    ticks_after = h[i:]
-                    reverted_idx = -1
-                    for j, item in enumerate(ticks_after):
-                        curr = item[1]
-                        if abs(curr['premium_discount'] - prev_stable['premium_discount']) <= REVERT_THRESHOLD:
-                            reverted_idx = i + j
-                            break
-                            
-                    if reverted_idx != -1:
-                        spike_count = reverted_idx - i
-                        if spike_count > 0:
-                            spike_ids = [h[idx][0] for idx in range(i, reverted_idx)]
-                            print(f"[Spike Filter] Deleting {len(spike_ids)} spike ticks from database: {spike_ids}")
-                            cursor.execute(f"DELETE FROM market_ticks WHERE id IN ({','.join(map(str, spike_ids))})")
-                            conn.commit()
-                            
-                            # Remove from memory history list
-                            del h[i:reverted_idx]
-                            break
-                    else:
-                        if len(ticks_after) > MAX_LOOKAHEAD:
-                            break # Verified real trend shift
-        
-        conn.close()
-        
-        # Keep history list small (last 8 entries max)
-        if len(last_saved_ticks_history[key]) > 8:
-            last_saved_ticks_history[key].pop(0)
-            
-        # Update throttle cache
-        last_saved_ticks[key] = (now_ts, underlying, call_price, put_price)
-    except Exception as e:
-        print(f"Error saving market tick: {e}")
+    """No-op to save storage footprint (disabled tick recording)."""
+    return
 
 def get_local_ip():
     try:
@@ -2061,34 +1940,8 @@ def save_state(key: str, payload: StatePayload):
 
 @app.get("/api/market/ticks")
 def get_market_ticks(symbol: str, expiry: str = None, strike: float = None, limit: int = 1000):
-    """Retrieve market ticks from database for a specific symbol/strike/expiry."""
-    try:
-        conn = sqlite3.connect(DB_FILE, timeout=30.0)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        
-        query = "SELECT * FROM market_ticks WHERE symbol = ?"
-        params = [symbol.upper()]
-        
-        if expiry:
-            query += " AND expiry = ?"
-            params.append(expiry)
-        if strike:
-            query += " AND strike = ?"
-            params.append(strike)
-            
-        query += " ORDER BY timestamp DESC LIMIT ?"
-        params.append(limit)
-        
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
-        
-        # Sort ascending for chronological chart view
-        ticks = [dict(row) for row in reversed(rows)]
-        return {"success": True, "ticks": ticks}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """Retrieve market ticks (disabled to save storage)."""
+    return {"success": True, "ticks": []}
 
 # ─── REAL-TIME WEBSOCKET STREAMING ───
 
