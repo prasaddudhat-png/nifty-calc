@@ -144,6 +144,7 @@
             <iframe id="calcFrame" src="calc.html?mode=mobile" class="active"></iframe>
             <iframe id="scannerFrame" src="scanner.html?mode=mobile"></iframe>
             <iframe id="posFrame" src="position_calculator.html?mode=mobile"></iframe>
+            <iframe id="settingsFrame" src="settings.html?mode=mobile"></iframe>
         </div>
     </div>
 
@@ -159,6 +160,10 @@
         <button onclick="switchTab('pos')" id="tab_pos" class="nav-tab">
             <i class="ph ph-calculator"></i>
             <span>Position Calc</span>
+        </button>
+        <button onclick="switchTab('settings')" id="tab_settings" class="nav-tab">
+            <i class="ph ph-gear"></i>
+            <span>Settings</span>
         </button>
     </nav>
 
@@ -180,6 +185,8 @@
                 activeFrame = document.getElementById('scannerFrame');
             } else if (tabId === 'pos') {
                 activeFrame = document.getElementById('posFrame');
+            } else if (tabId === 'settings') {
+                activeFrame = document.getElementById('settingsFrame');
             }
             
             if (activeFrame) {

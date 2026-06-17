@@ -1198,10 +1198,6 @@
             const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
             let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
             const isLocal = rawHost === 'localhost' || rawHost === '127.0.0.1' || rawHost.startsWith('192.168.') || rawHost.startsWith('10.') || rawHost.startsWith('172.');
-            if (savedBackendUrl && isLocal && savedBackendUrl.includes('railway.app')) {
-                localStorage.removeItem('nifty_calc_backend_url');
-                savedBackendUrl = null;
-            }
             const _tradeApiBase = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
             let currentUser = 'pra'; // Loaded dynamically from StateStorage
 

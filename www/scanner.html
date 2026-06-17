@@ -717,14 +717,6 @@
         let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
         let savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
         const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
-        if (savedBackendUrl && isLocal && savedBackendUrl.includes('railway.app')) {
-            localStorage.removeItem('nifty_calc_backend_url');
-            savedBackendUrl = null;
-        }
-        if (savedScannerUrl && isLocal && savedScannerUrl.includes('railway.app')) {
-            localStorage.removeItem('nifty_calc_scanner_url');
-            savedScannerUrl = null;
-        }
         const SCANNER_API = savedScannerUrl !== null ? savedScannerUrl : (isDev ? `http://${host}:8001` : ``);
         const FALLBACK_API = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : ``);
         let activeAPI = null;  // Will be set after detection
