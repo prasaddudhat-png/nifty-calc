@@ -25,3 +25,6 @@ nifty-calc-backend/*.txt
 *.bat
 debug_api.txt
 nifty_out.txt
+
+# Node / Package dependencies
+node_modules/

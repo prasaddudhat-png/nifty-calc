@@ -1,7 +1,7 @@
 {
   "appId": "com.niftycalc.app",
   "appName": "Nifty Arbitrage",
-  "webDir": ".",
+  "webDir": "www",
   "server": {
     "androidScheme": "https",
     "allowNavigation": [

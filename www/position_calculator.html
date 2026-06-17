@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Position Calculator - Nifty Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f0a1c; color: #ffffff; min-height: 100vh; margin: 0; padding: 20px; }
+        .app-container { max-width: 1200px; margin: 0 auto; }
+        .dark-card { background-color: #1a1625; border: 1px solid #2d2640; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); }
+        .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .data-label { color: #8b85a1; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+        
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-field { 
+            background: #231b2e; border: 1px solid #3b324c; color: #fff; padding: 10px 14px; 
+            border-radius: 8px; font-size: 0.95rem; outline: none; transition: border-color 0.2s;
+        }
+        .input-field:focus { border-color: #60a5fa; }
+        .calc-value { font-family: monospace; font-size: 1.1rem; font-weight: 600; color: #60a5fa; }
+        .calc-label { font-size: 0.85rem; color: #a5b4fc; }
+
+        /* Toggle switch */
+        .toggle-container {
+            display: inline-flex;
+            background: #231b2e;
+            border-radius: 8px;
+            padding: 4px;
+            border: 1px solid #3b324c;
+        }
+        .toggle-btn {
+            padding: 6px 16px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #8b85a1;
+        }
+        .toggle-btn.active-long { background: rgba(52, 211, 153, 0.2); color: #34d399; }
+        .toggle-btn.active-short { background: rgba(248, 113, 113, 0.2); color: #f87171; }
+        
+        .positive { color: #34d399; }
+        .negative { color: #f87171; }
+        body.iframe-mobile-mode .top-bar {
+            display: none !important;
+        }
+        body.iframe-mobile-mode body {
+            padding: 8px !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <div class="top-bar flex-col md:flex-row gap-4 items-start md:items-center">
+            <div class="flex items-center gap-3">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">Position Entry/Exit Calculator 🧮</h1>
+                    <p class="data-label text-xs mt-1">Model Synthetic Futures and P/L based on Entry & Exit data.</p>
+                </div>
+                <span class="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-semibold">
+                    <i class="ph ph-user"></i> Active User: <strong id="activeUserLabel">PRA</strong>
+                </span>
+            </div>
+            <div class="flex gap-3 items-center flex-wrap">
+                <a href="index.html" class="flex gap-2 items-center bg-[rgba(52,211,153,0.1)] hover:bg-[rgba(52,211,153,0.2)] border border-[#2d2640] text-emerald-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-chart-line"></i> Auto-Calc
+                </a>
+                <a href="scanner.html" class="flex gap-2 items-center bg-[rgba(167,139,250,0.1)] hover:bg-[rgba(167,139,250,0.2)] border border-[#2d2640] text-purple-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-magnifying-glass"></i> Scanner
+                </a>
+                <a href="analyzer.html" class="flex gap-2 items-center bg-[rgba(96,165,250,0.1)] hover:bg-[rgba(96,165,250,0.2)] border border-[#2d2640] text-blue-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-chart-polar"></i> Analyzer
+                </a>
+                <a href="historical.html" class="flex gap-2 items-center bg-[rgba(244,114,182,0.1)] hover:bg-[rgba(244,114,182,0.2)] border border-[#2d2640] text-pink-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-clock-counter-clockwise"></i> Historical Chart
+                </a>
+                <a href="historical_pd.html" class="flex gap-2 items-center bg-[rgba(251,191,36,0.1)] hover:bg-[rgba(251,191,36,0.2)] border border-[#2d2640] text-amber-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-trend-up"></i> P/D Chart
+                </a>
+                <a href="position_calculator.html" class="flex gap-2 items-center bg-[rgba(129,140,248,0.25)] border border-indigo-500 text-indigo-400 px-3 py-1.5 rounded-lg transition no-underline font-medium text-sm">
+                    <i class="ph ph-calculator"></i> Position Calc
+                </a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Setup Column -->
+            <div class="dark-card h-fit">
+                <div class="flex items-center gap-2 mb-4 border-b border-[#2d2640] pb-3">
+                    <div class="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400"><i class="ph ph-gear"></i></div>
+                    <h2 class="text-xl font-bold">Trade Setup</h2>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group">
+                        <label class="data-label">Symbol</label>
+                        <input type="text" id="symbol" class="input-field" value="NIFTY" oninput="calculate()">
+                    </div>
+                    <div class="input-group">
+                        <label class="data-label">Expiry Date</label>
+                        <input type="text" id="expiry" class="input-field" placeholder="e.g. 11JUN2026" oninput="calculate()">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group">
+                        <label class="data-label">Instrument Strike</label>
+                        <input type="number" id="strike" class="input-field" placeholder="e.g. 22200" oninput="calculate()">
+                    </div>
+                    <div class="input-group">
+                        <label class="data-label">Direction</label>
+                        <div class="toggle-container">
+                            <div id="btnLong" class="toggle-btn active-long" onclick="setDirection('long')">Long Synth</div>
+                            <div id="btnShort" class="toggle-btn" onclick="setDirection('short')">Short Synth</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div class="input-group">
+                        <label class="data-label">Lot Size</label>
+                        <input type="number" id="lotSize" class="input-field" value="50" oninput="calculate()">
+                    </div>
+                    <div class="input-group">
+                        <label class="data-label">Number of Lots</label>
+                        <input type="number" id="numLots" class="input-field" value="1" oninput="calculate()">
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label class="data-label">Expenses (Brokerage, taxes, etc. in ₹)</label>
+                    <input type="number" step="1" id="expenses" class="input-field" value="0" placeholder="e.g. 100" oninput="calculate()">
+                </div>
+                
+                <div class="mt-6 p-4 rounded-lg bg-[#231b2e] border border-[#3b324c] text-sm text-gray-400">
+                    <div id="directionDesc"><strong>Long Synthetic Arb:</strong> Buy Call, Sell Put. Spot is Sold to hedge.</div>
+                </div>
+            </div>
+
+            <!-- Trade Data Column (Entry and Exit) -->
+            <div class="flex flex-col gap-6">
+                <!-- Entry Point -->
+                <div class="dark-card">
+                    <div class="flex items-center gap-2 mb-4 border-b border-[#2d2640] pb-3">
+                        <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400"><i class="ph ph-sign-in"></i></div>
+                        <h2 class="text-xl font-bold">Entry Point</h2>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="input-group">
+                            <label class="data-label">Spot Price</label>
+                            <input type="number" step="0.05" id="entrySpot" class="input-field" placeholder="Spot LTP" oninput="calculate()">
+                        </div>
+                        <div class="input-group">
+                            <label class="data-label text-emerald-400">Call Entry</label>
+                            <input type="number" step="0.05" id="entryCall" class="input-field" placeholder="CE Price" oninput="calculate()">
+                        </div>
+                        <div class="input-group">
+                            <label class="data-label text-fuchsia-400">Put Entry</label>
+                            <input type="number" step="0.05" id="entryPut" class="input-field" placeholder="PE Price" oninput="calculate()">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-4 p-4 rounded-lg bg-[#231b2e] border border-[#3b324c]">
+                        <div class="flex-1">
+                            <div class="calc-label">Entry Synthetic Future</div>
+                            <div class="calc-value" id="entrySynth">0.00</div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="calc-label">Entry P/D</div>
+                            <div class="calc-value" id="entryPD">0.00</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 border-t border-[#3b324c] pt-4">
+                        <div class="data-label mb-2 text-indigo-400"><i class="ph ph-wallet"></i> Margin / Value at Entry</div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-gray-400 text-xs" id="lblMarginOption">Option Net Premium:</span>
+                                <div class="text-sm font-mono font-bold" id="marginOption">0.00</div>
+                            </div>
+                            <div>
+                                <span class="text-gray-400 text-xs">Spot Value (100% Margin):</span>
+                                <div class="text-sm font-mono font-bold" id="marginSpot">0.00</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Exit Point -->
+                <div class="dark-card">
+                    <div class="flex items-center gap-2 mb-4 border-b border-[#2d2640] pb-3">
+                        <div class="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-400"><i class="ph ph-sign-out"></i></div>
+                        <h2 class="text-xl font-bold">Exit Point</h2>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mb-6">
+                        <div class="input-group">
+                            <label class="data-label">Spot Price</label>
+                            <input type="number" step="0.05" id="exitSpot" class="input-field" placeholder="Spot LTP" oninput="calculate()">
+                        </div>
+                        <div class="input-group">
+                            <label class="data-label text-emerald-400">Call Exit</label>
+                            <input type="number" step="0.05" id="exitCall" class="input-field" placeholder="CE Price" oninput="calculate()">
+                        </div>
+                        <div class="input-group">
+                            <label class="data-label text-fuchsia-400">Put Exit</label>
+                            <input type="number" step="0.05" id="exitPut" class="input-field" placeholder="PE Price" oninput="calculate()">
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-4 p-4 rounded-lg bg-[#231b2e] border border-[#3b324c]">
+                        <div class="flex-1">
+                            <div class="calc-label">Exit Synthetic Future</div>
+                            <div class="calc-value" id="exitSynth">0.00</div>
+                        </div>
+                        <div class="flex-1">
+                            <div class="calc-label">Exit P/D</div>
+                            <div class="calc-value" id="exitPD">0.00</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Column -->
+            <div class="dark-card h-fit !bg-gradient-to-b from-[#1a1625] to-[#120e1a]">
+                <div class="flex items-center gap-2 mb-6 border-b border-[#2d2640] pb-3">
+                    <div class="w-8 h-8 rounded-full bg-amber-500/20 flex items-center justify-center text-amber-400"><i class="ph ph-currency-inr"></i></div>
+                    <h2 class="text-xl font-bold">Profit & Loss</h2>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Option Components P/L -->
+                    <div class="bg-[#231b2e]/50 p-4 rounded-xl border border-[#2d2640]">
+                        <h3 class="text-sm font-semibold text-gray-300 mb-3 border-b border-[#3b324c] pb-2">Option Side (Synthetic)</h3>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm text-gray-400">Call P/L:</span>
+                            <span class="font-bold font-mono tracking-tight" id="resCallPnL">0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-sm text-gray-400">Put P/L:</span>
+                            <span class="font-bold font-mono tracking-tight" id="resPutPnL">0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-[#3b324c]/50">
+                            <span class="text-sm font-semibold text-gray-200">Total Option P/L:</span>
+                            <span class="text-xl font-bold font-mono tracking-tight" id="resTotalPnL">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Equity Side P/L -->
+                    <div class="bg-[#231b2e]/50 p-4 rounded-xl border border-[#2d2640]">
+                        <h3 class="text-sm font-semibold text-gray-300 mb-3 border-b border-[#3b324c] pb-2">Equity Side (Spot)</h3>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-400">Spot P/L:</span>
+                            <span class="font-bold font-mono tracking-tight" id="resSpotPnL">0.00</span>
+                        </div>
+                    </div>
+                    <!-- Final Net P/L -->
+                    <div class="bg-gradient-to-r from-indigo-900/40 to-blue-900/40 p-4 rounded-xl border border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.1)]">
+                        <div class="flex justify-between items-center text-xs text-indigo-300 mb-1">
+                            <span>Gross Net P/L:</span>
+                            <span class="font-bold font-mono" id="resGrossPnL">0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs text-red-400 mb-2">
+                            <span>Expenses:</span>
+                            <span class="font-bold font-mono" id="resExpenses">-₹ 0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center pt-2 border-t border-indigo-500/30">
+                            <span class="text-sm font-bold text-white uppercase tracking-wider">Final Net P/L:</span>
+                            <span class="text-2xl font-bold font-mono tracking-tight" id="resNetPnL">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- P/D Tracking -->
+                    <div class="bg-[#231b2e]/50 p-4 rounded-xl border border-[#2d2640]">
+                        <h3 class="text-sm font-semibold text-gray-300 mb-3 border-b border-[#3b324c] pb-2">Premium/Discount Shift</h3>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-400">Entry P/D ➔ Exit P/D:</span>
+                            <span class="font-bold text-blue-400" id="resPDShift">0.00 ➔ 0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center mt-2 pt-2 border-t border-[#3b324c]/50">
+                            <span class="text-sm font-semibold text-gray-200">Points Gained from P/D:</span>
+                            <span class="font-bold font-mono tracking-tight" id="resPDPoints">0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="pt-4 border-t border-[#2d2640] space-y-3">
+                        <button onclick="saveToTradeHistory()" class="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold py-2.5 px-4 rounded-xl transition shadow-lg shadow-emerald-950/20 border border-emerald-500/30">
+                            <i class="ph ph-floppy-disk"></i> Export to Trade History
+                        </button>
+                        <button onclick="exportToCSV()" class="w-full flex items-center justify-center gap-2 bg-[#231b2e] hover:bg-[#2d2640] border border-[#3b324c] text-white font-semibold py-2.5 px-4 rounded-xl transition">
+                            <i class="ph ph-file-csv"></i> Export Position to Excel (CSV)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Check if loaded inside iframe / mobile mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const isMobileMode = urlParams.get('mode') === 'mobile' || window.self !== window.top;
+        if (isMobileMode) {
+            document.body.classList.add('iframe-mobile-mode');
+        }
+
+        const host = window.location.hostname || 'localhost';
+        const protocol = window.location.protocol;
+        const port = window.location.port;
+        const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
+        let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+        const isLocal = host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.');
+        if (savedBackendUrl && isLocal && savedBackendUrl.includes('railway.app')) {
+            localStorage.removeItem('nifty_calc_backend_url');
+            savedBackendUrl = null;
+        }
+        const _tradeApiBase = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
+        let currentUser = 'pra'; // Loaded dynamically from StateStorage
+
+        // ─── StateStorage Timeout Polyfill ───
+        if (!AbortSignal.timeout) {
+            AbortSignal.timeout = function(ms) {
+                const controller = new AbortController();
+                setTimeout(() => controller.abort(), ms);
+                return controller.signal;
+            };
+        }
+
+        // ─── StateStorage Backend Persistence Utility ───
+        const StateStorage = {
+            async get(key, defaultValue = null) {
+                try {
+                    const res = await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`, {
+                        signal: AbortSignal.timeout(1500)
+                    });
+                    const data = await res.json();
+                    if (data.success && data.value !== undefined) {
+                        return JSON.parse(data.value);
+                    }
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to get '${key}' from backend, using localStorage fallback:`, e);
+                }
+                try {
+                    const val = localStorage.getItem(key);
+                    return val ? JSON.parse(val) : defaultValue;
+                } catch(e) {
+                    return defaultValue;
+                }
+            },
+            async set(key, value) {
+                try {
+                    localStorage.setItem(key, JSON.stringify(value));
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to write '${key}' to localStorage:`, e);
+                }
+                try {
+                    await fetch(`${_tradeApiBase}/api/state/${encodeURIComponent(key)}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ value: JSON.stringify(value) }),
+                        signal: AbortSignal.timeout(1500)
+                    });
+                } catch(e) {
+                    console.warn(`[StateStorage] Failed to sync '${key}' to backend:`, e);
+                }
+            }
+        };
+
+        // Date helper: always dd/mm/yyyy format
+        function formatDate(d) {
+            if (!d) d = new Date();
+            if (typeof d === 'string') return d; // already formatted
+            return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+        }
+
+        let currentDirection = 'long';
+
+        function setDirection(dir) {
+            currentDirection = dir;
+            if (dir === 'long') {
+                document.getElementById('btnLong').classList.add('active-long');
+                document.getElementById('btnShort').classList.remove('active-short');
+                document.getElementById('directionDesc').innerHTML = "<strong>Long Synthetic Arb:</strong> Buy Call, Sell Put. Spot is Sold to hedge.";
+            } else {
+                document.getElementById('btnShort').classList.add('active-short');
+                document.getElementById('btnLong').classList.remove('active-long');
+                document.getElementById('directionDesc').innerHTML = "<strong>Short Synthetic Arb:</strong> Sell Call, Buy Put. Spot is Bought to hedge.";
+            }
+            calculate();
+        }
+
+        function getVal(id) {
+            const val = parseFloat(document.getElementById(id).value);
+            return isNaN(val) ? 0 : val;
+        }
+
+        function hasVal(id) {
+            return document.getElementById(id).value.trim() !== '';
+        }
+
+        function formatVal(val, isCurrency = false) {
+            if (isNaN(val)) return '0.00';
+            const formatted = val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            return isCurrency ? '₹ ' + formatted : formatted;
+        }
+
+        function formatSigned(val, isCurrency = false) {
+            const sign = val > 0 ? '+' : '';
+            return `${sign}${formatVal(val, isCurrency)}`;
+        }
+
+        function colorize(el, val) {
+            if (val > 0) {
+                el.classList.add('positive');
+                el.classList.remove('negative');
+                el.classList.remove('text-gray-400');
+            } else if (val < 0) {
+                el.classList.add('negative');
+                el.classList.remove('positive');
+                el.classList.remove('text-gray-400');
+            } else {
+                el.classList.remove('positive');
+                el.classList.remove('negative');
+                // Don't add gray, leave default
+            }
+            if (val === 0) el.style.color = '#8b85a1'; else el.style.color = '';
+        }
+
+
+
+        function calculate() {
+            // Inputs
+            const strike = getVal('strike');
+            const lotSize = getVal('lotSize');
+            const numLots = getVal('numLots');
+            const multiplier = lotSize * numLots;
+
+            const entrySpot = getVal('entrySpot');
+            const entryCall = getVal('entryCall');
+            const entryPut = getVal('entryPut');
+
+            const exitSpot = getVal('exitSpot');
+            const exitCall = getVal('exitCall');
+            const exitPut = getVal('exitPut');
+
+            // Entry Calcs
+            let entrySynth = 0;
+            let entryPD = 0;
+            if (hasVal('strike') && hasVal('entryCall') && hasVal('entryPut')) {
+                entrySynth = strike + entryCall - entryPut;
+                if (hasVal('entrySpot')) {
+                    entryPD = entrySynth - entrySpot;
+                }
+            }
+
+            // Exit Calcs
+            let exitSynth = 0;
+            let exitPD = 0;
+            if (hasVal('strike') && hasVal('exitCall') && hasVal('exitPut')) {
+                exitSynth = strike + exitCall - exitPut;
+                if (hasVal('exitSpot')) {
+                    exitPD = exitSynth - exitSpot;
+                }
+            }
+
+            // Update DOM with calculations
+            document.getElementById('entrySynth').innerText = entrySynth ? entrySynth.toFixed(2) : '-';
+            document.getElementById('entryPD').innerText = (hasVal('entrySpot') && entrySynth) ? formatSigned(entryPD) : '-';
+            
+            document.getElementById('exitSynth').innerText = exitSynth ? exitSynth.toFixed(2) : '-';
+            document.getElementById('exitPD').innerText = (hasVal('exitSpot') && exitSynth) ? formatSigned(exitPD) : '-';
+
+            // Entry Margin/Value Calcs
+            if (hasVal('entrySpot')) {
+                document.getElementById('marginSpot').innerText = formatVal(entrySpot * multiplier, true);
+            } else {
+                document.getElementById('marginSpot').innerText = '0.00';
+            }
+
+            if (hasVal('entryCall') && hasVal('entryPut')) {
+                let optNet = 0;
+                if (currentDirection === 'long') {
+                    optNet = (entryCall - entryPut) * multiplier;
+                } else {
+                    optNet = (entryPut - entryCall) * multiplier;
+                }
+                
+                if (optNet < 0) {
+                     document.getElementById('lblMarginOption').innerText = "Option Net Premium (Credit):";
+                     document.getElementById('marginOption').classList.add('positive');
+                     document.getElementById('marginOption').classList.remove('negative');
+                } else if (optNet > 0) {
+                     document.getElementById('lblMarginOption').innerText = "Option Net Premium (Debit):";
+                     document.getElementById('marginOption').classList.add('negative');
+                     document.getElementById('marginOption').classList.remove('positive');
+                } else {
+                     document.getElementById('lblMarginOption').innerText = "Option Net Premium:";
+                     document.getElementById('marginOption').classList.remove('positive', 'negative');
+                }
+                document.getElementById('marginOption').innerText = formatVal(Math.abs(optNet), true);
+            } else {
+                document.getElementById('marginOption').innerText = '0.00';
+                document.getElementById('lblMarginOption').innerText = "Option Net Premium:";
+                document.getElementById('marginOption').classList.remove('positive', 'negative');
+            }
+
+            // P/L Calcs
+            let callPnL = 0;
+            let putPnL = 0;
+            let spotPnL = 0;
+
+            if (currentDirection === 'long') {
+                callPnL = (exitCall - entryCall) * multiplier;
+                putPnL = (entryPut - exitPut) * multiplier;
+                spotPnL = (entrySpot - exitSpot) * multiplier; // Spot Sold at Entry
+            } else {
+                callPnL = (entryCall - exitCall) * multiplier;
+                putPnL = (exitPut - entryPut) * multiplier;
+                spotPnL = (exitSpot - entrySpot) * multiplier; // Spot Bought at Entry
+            }
+
+            const totalOptionsPnL = callPnL + putPnL;
+            
+            // Required conditions to display PnL
+            const hasEntryExitCalls = hasVal('entryCall') && hasVal('exitCall');
+            const hasEntryExitPuts = hasVal('entryPut') && hasVal('exitPut');
+            const hasEntryExitSpot = hasVal('entrySpot') && hasVal('exitSpot');
+
+            // Update P/L DOM
+            const elCallPnL = document.getElementById('resCallPnL');
+            if (hasEntryExitCalls) {
+                elCallPnL.innerText = formatSigned(callPnL, true);
+                colorize(elCallPnL, callPnL);
+            } else {
+                elCallPnL.innerText = '-';
+                elCallPnL.style.color = '#8b85a1';
+            }
+
+            const elPutPnL = document.getElementById('resPutPnL');
+            if (hasEntryExitPuts) {
+                elPutPnL.innerText = formatSigned(putPnL, true);
+                colorize(elPutPnL, putPnL);
+            } else {
+                elPutPnL.innerText = '-';
+                elPutPnL.style.color = '#8b85a1';
+            }
+
+            const elTotalPnL = document.getElementById('resTotalPnL');
+            if (hasEntryExitCalls && hasEntryExitPuts) {
+                elTotalPnL.innerText = formatSigned(totalOptionsPnL, true);
+                colorize(elTotalPnL, totalOptionsPnL);
+            } else {
+                elTotalPnL.innerText = '-';
+                elTotalPnL.style.color = '#8b85a1';
+            }
+
+            const elSpotPnL = document.getElementById('resSpotPnL');
+            if (hasEntryExitSpot) {
+                elSpotPnL.innerText = formatSigned(spotPnL, true);
+                colorize(elSpotPnL, spotPnL);
+            } else {
+                elSpotPnL.innerText = '-';
+                elSpotPnL.style.color = '#8b85a1';
+            }
+
+            const elNetPnL = document.getElementById('resNetPnL');
+            const elGrossPnL = document.getElementById('resGrossPnL');
+            const elExpenses = document.getElementById('resExpenses');
+            const expenses = getVal('expenses');
+            
+            const grossPnL = totalOptionsPnL + spotPnL;
+            const netPnL = grossPnL - expenses;
+            
+            if (hasEntryExitCalls && hasEntryExitPuts && hasEntryExitSpot) {
+                elGrossPnL.innerText = formatSigned(grossPnL, true);
+                colorize(elGrossPnL, grossPnL);
+                
+                elExpenses.innerText = expenses > 0 ? `- ₹ ${formatVal(expenses)}` : '₹ 0.00';
+                
+                elNetPnL.innerText = formatSigned(netPnL, true);
+                colorize(elNetPnL, netPnL);
+            } else {
+                elGrossPnL.innerText = '-';
+                elGrossPnL.style.color = '#8b85a1';
+                elExpenses.innerText = '-';
+                elNetPnL.innerText = '-';
+                elNetPnL.style.color = '#8b85a1';
+            }
+
+            // PD Shift
+            if (hasVal('entrySpot') && hasVal('exitSpot') && entrySynth && exitSynth) {
+                document.getElementById('resPDShift').innerText = `${entryPD.toFixed(2)} ➔ ${exitPD.toFixed(2)}`;
+                
+                // Diff in P/D points in player's favor
+                // For Long Synth, you want P/D to go up (increase premium, exit synth goes higher vs spot).
+                let pdPointsShift = 0;
+                if (currentDirection === 'long') {
+                    pdPointsShift = exitPD - entryPD;
+                } else {
+                    pdPointsShift = entryPD - exitPD;
+                }
+                
+                const elPDPoints = document.getElementById('resPDPoints');
+                elPDPoints.innerText = formatSigned(pdPointsShift);
+                colorize(elPDPoints, pdPointsShift);
+            } else {
+                document.getElementById('resPDShift').innerText = '- ➔ -';
+                document.getElementById('resPDPoints').innerText = '-';
+                document.getElementById('resPDPoints').style.color = '#8b85a1';
+            }
+        }
+
+        // Save to Database and LocalStorage
+        function saveToTradeHistory() {
+            const symbol = document.getElementById('symbol').value.trim().toUpperCase() || 'NIFTY';
+            const expiry = document.getElementById('expiry').value.trim().toUpperCase() || '';
+            const strike = getVal('strike');
+            const lotSize = getVal('lotSize');
+            const numLots = getVal('numLots');
+            const qty = lotSize * numLots;
+            
+            const entrySpot = getVal('entrySpot');
+            const entryCall = getVal('entryCall');
+            const entryPut = getVal('entryPut');
+            
+            const exitSpot = getVal('exitSpot');
+            const exitCall = getVal('exitCall');
+            const exitPut = getVal('exitPut');
+            
+            if (!strike) {
+                alert("Please specify a strike price.");
+                return;
+            }
+            if (!entryCall || !entryPut) {
+                alert("Please specify entry call and put prices.");
+                return;
+            }
+            
+            const entrySynth = strike + entryCall - entryPut;
+            const entryPD = entrySpot ? (entrySynth - entrySpot) : 0;
+            
+            let exitSynth = 0;
+            let exitPD = 0;
+            if (exitCall && exitPut) {
+                exitSynth = strike + exitCall - exitPut;
+                if (exitSpot) {
+                    exitPD = exitSynth - exitSpot;
+                }
+            }
+            
+            let callPnL = 0;
+            let putPnL = 0;
+            let spotPnL = 0;
+            if (currentDirection === 'long') {
+                callPnL = (exitCall - entryCall) * qty;
+                putPnL = (entryPut - exitPut) * qty;
+                spotPnL = entrySpot ? ((entrySpot - exitSpot) * qty) : 0;
+            } else {
+                callPnL = (entryCall - exitCall) * qty;
+                putPnL = (exitPut - entryPut) * qty;
+                spotPnL = entrySpot ? ((exitSpot - entrySpot) * qty) : 0;
+            }
+            const expenses = getVal('expenses');
+            const netPnL = (exitCall && exitPut) ? (callPnL + putPnL + spotPnL - expenses) : 0;
+            
+            const newTrade = {
+                id: Date.now(),
+                status: (exitSpot && exitCall && exitPut) ? 'closed' : 'active',
+                entryDate: formatDate(),
+                entryTime: new Date().toTimeString().split(' ')[0],
+                exitDate: (exitSpot && exitCall && exitPut) ? formatDate() : '',
+                exitTime: (exitSpot && exitCall && exitPut) ? new Date().toTimeString().split(' ')[0] : '',
+                symbol: symbol,
+                direction: currentDirection,
+                strike: strike,
+                lots: numLots,
+                qty: qty,
+                entrySpot: entrySpot || null,
+                entryCall: entryCall,
+                entryPut: entryPut,
+                entryPD: entryPD,
+                expiry: expiry,
+                exitSpot: exitSpot || null,
+                exitCall: exitCall || null,
+                exitPut: exitPut || null,
+                finalPnL: netPnL,
+                exitId: null,
+                user: currentUser
+            };
+            
+            // 1. Save to LocalStorage
+            let localTrades = [];
+            try {
+                const data = localStorage.getItem('autocalc_tradebook_' + currentUser);
+                if (data) localTrades = JSON.parse(data);
+            } catch (e) {
+                console.error("Error reading localStorage:", e);
+            }
+            localTrades.push(newTrade);
+            localStorage.setItem('autocalc_tradebook_' + currentUser, JSON.stringify(localTrades));
+            
+            // 2. Post to Server
+            fetch(`${_tradeApiBase}/api/trades?user=${encodeURIComponent(currentUser)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trades: [newTrade], user: currentUser })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert("Position successfully exported and saved to Trade History!");
+                } else {
+                    console.error("Server save failed", data);
+                    alert("Saved locally but failed to sync to server database.");
+                }
+            })
+            .catch(err => {
+                console.error("Error posting trade:", err);
+                alert("Saved locally but server was offline.");
+            });
+        }
+
+        // Export Position to CSV
+        function exportToCSV() {
+            const symbol = document.getElementById('symbol').value.trim().toUpperCase() || 'NIFTY';
+            const expiry = document.getElementById('expiry').value.trim().toUpperCase() || '';
+            const strike = getVal('strike');
+            const lotSize = getVal('lotSize');
+            const numLots = getVal('numLots');
+            const qty = lotSize * numLots;
+            
+            const entrySpot = getVal('entrySpot');
+            const entryCall = getVal('entryCall');
+            const entryPut = getVal('entryPut');
+            
+            const exitSpot = getVal('exitSpot');
+            const exitCall = getVal('exitCall');
+            const exitPut = getVal('exitPut');
+            
+            const entrySynth = strike + entryCall - entryPut;
+            const entryPD = entrySpot ? (entrySynth - entrySpot) : 0;
+            
+            let exitSynth = 0;
+            let exitPD = 0;
+            if (exitCall && exitPut) {
+                exitSynth = strike + exitCall - exitPut;
+                if (exitSpot) {
+                    exitPD = exitSynth - exitSpot;
+                }
+            }
+            
+            let callPnL = 0;
+            let putPnL = 0;
+            let spotPnL = 0;
+            if (currentDirection === 'long') {
+                callPnL = (exitCall - entryCall) * qty;
+                putPnL = (entryPut - exitPut) * qty;
+                spotPnL = entrySpot ? ((entrySpot - exitSpot) * qty) : 0;
+            } else {
+                callPnL = (entryCall - exitCall) * qty;
+                putPnL = (exitPut - entryPut) * qty;
+                spotPnL = entrySpot ? ((exitSpot - entrySpot) * qty) : 0;
+            }
+            const expenses = getVal('expenses');
+            const grossPnL = callPnL + putPnL + spotPnL;
+            const netPnL = (exitCall && exitPut) ? (grossPnL - expenses) : 0;
+            
+            const rows = [
+                ["Parameter", "Value"],
+                ["Date", new Date().toLocaleDateString()],
+                ["User", localStorage.getItem('autocalc_current_user') || 'pra'],
+                ["Symbol", symbol],
+                ["Expiry", expiry],
+                ["Strike", strike],
+                ["Direction", currentDirection === 'long' ? 'Long Synthetic' : 'Short Synthetic'],
+                ["Lot Size", lotSize],
+                ["Lots", numLots],
+                ["Total Qty", qty],
+                ["Entry Spot", entrySpot],
+                ["Entry Call", entryCall],
+                ["Entry Put", entryPut],
+                ["Entry Synthetic Future", entrySynth.toFixed(2)],
+                ["Entry Premium/Discount", entryPD.toFixed(2)],
+                ["Exit Spot", exitSpot || '-'],
+                ["Exit Call", exitCall || '-'],
+                ["Exit Put", exitPut || '-'],
+                ["Exit Synthetic Future", exitSynth ? exitSynth.toFixed(2) : '-'],
+                ["Exit Premium/Discount", exitSynth ? exitPD.toFixed(2) : '-'],
+                ["Call P/L", exitCall ? callPnL.toFixed(2) : '-'],
+                ["Put P/L", exitPut ? putPnL.toFixed(2) : '-'],
+                ["Spot P/L", exitSpot ? spotPnL.toFixed(2) : '-'],
+                ["Gross Net P/L", exitCall && exitPut && exitSpot ? grossPnL.toFixed(2) : '-'],
+                ["Expenses", expenses.toFixed(2)],
+                ["Final Net P/L", exitCall && exitPut && exitSpot ? netPnL.toFixed(2) : '-'],
+                ["P/D Shift", exitSynth ? (exitPD - entryPD).toFixed(2) : '-']
+            ];
+            
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + rows.map(e => e.map(val => `"${val}"`).join(",")).join("\n");
+                
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `position_calc_${symbol}_${strike}_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Initialize display
+        calculate();
+
+        // Parse URL params for auto-fill
+        window.addEventListener('DOMContentLoaded', () => {
+            const fallbackUser = localStorage.getItem('autocalc_current_user') || 'pra';
+            currentUser = fallbackUser;
+            const userLabel = document.getElementById('activeUserLabel');
+            if (userLabel) userLabel.innerText = fallbackUser.toUpperCase();
+
+            StateStorage.get('autocalc_current_user', fallbackUser).then(user => {
+                currentUser = user;
+                if (userLabel) userLabel.innerText = user.toUpperCase();
+            });
+
+            const params = new URLSearchParams(window.location.search);
+            
+            if (params.has('direction')) {
+                setDirection(params.get('direction').toLowerCase());
+            }
+            
+            const fieldMap = {
+                'strike': 'strike',
+                'qty': 'numLots',
+                'entrySpot': 'entrySpot',
+                'entryCE': 'entryCall',
+                'entryPE': 'entryPut',
+                'exitSpot': 'exitSpot',
+                'exitCE': 'exitCall',
+                'exitPE': 'exitPut'
+            };
+            
+            let shouldCalc = false;
+            for (const [paramKey, elemId] of Object.entries(fieldMap)) {
+                if (params.has(paramKey)) {
+                    document.getElementById(elemId).value = params.get(paramKey);
+                    shouldCalc = true;
+                }
+            }
+            
+            if (shouldCalc) {
+                if (params.has('qty')) {
+                    document.getElementById('lotSize').value = '1';
+                }
+                calculate();
+            }
+        });
+    </script>
+</body>
+</html>
