@@ -1,0 +1,11 @@
+{
+  "appId": "com.niftycalc.app",
+  "appName": "Nifty Arbitrage",
+  "webDir": ".",
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "nifty-calc-production.up.railway.app"
+    ]
+  }
+}
