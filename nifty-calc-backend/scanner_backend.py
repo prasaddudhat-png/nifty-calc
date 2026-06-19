@@ -69,7 +69,9 @@ CLIENT_CODE = ""
 PIN = ""
 TOTP_SECRET = ""
 
-CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "api_config.json")
+# Check if running in a container with a persistent /data mount (e.g. Railway)
+DATA_DIR = "/data" if os.path.exists("/data") else os.path.dirname(os.path.abspath(__file__))
+CONFIG_FILE = os.path.join(DATA_DIR, "api_config.json")
 
 def load_credentials():
     global API_KEY, CLIENT_CODE, PIN, TOTP_SECRET
@@ -80,21 +82,29 @@ def load_credentials():
         "TOTP_SECRET": "627O7ZONJSMTW6PKVFZT7M3BZE"
     }
     
+    # Load from file first if it exists
+    config = default_config.copy()
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r') as f:
-                config = json.load(f)
-            API_KEY = config.get("API_KEY", default_config["API_KEY"])
-            CLIENT_CODE = config.get("CLIENT_CODE", default_config["CLIENT_CODE"])
-            PIN = str(config.get("PIN", default_config["PIN"]))
-            TOTP_SECRET = config.get("TOTP_SECRET", default_config["TOTP_SECRET"])
+                file_config = json.load(f)
+            config.update(file_config)
         except Exception as e:
             print(f"Error reading {CONFIG_FILE}: {e}")
     else:
-        API_KEY = default_config["API_KEY"]
-        CLIENT_CODE = default_config["CLIENT_CODE"]
-        PIN = default_config["PIN"]
-        TOTP_SECRET = default_config["TOTP_SECRET"]
+        # Create file if missing
+        try:
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(default_config, f, indent=4)
+        except Exception as e:
+            print(f"Error creating {CONFIG_FILE}: {e}")
+            
+    # Environment variables take precedence (useful for cloud deploys like Railway)
+    API_KEY = os.environ.get("API_KEY", config["API_KEY"])
+    CLIENT_CODE = os.environ.get("CLIENT_CODE", config["CLIENT_CODE"])
+    PIN = str(os.environ.get("PIN", config["PIN"]))
+    TOTP_SECRET = os.environ.get("TOTP_SECRET", config["TOTP_SECRET"])
+    return config
 
 load_credentials()
 

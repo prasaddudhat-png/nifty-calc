@@ -3165,7 +3165,7 @@
 
                 renderTradeDetails(idx);
                 
-                const USE_WS = true;
+                const USE_WS = isLocal;
                 
                 // Hydrate chart from backend database, then run connection
                 loadTicksFromDB(symbol, idx).then(async () => {
@@ -3205,7 +3205,7 @@
 
             function triggerFetch(idx) {
                 if (!boxSymbol[idx]) return;
-                const USE_WS = true;
+                const USE_WS = isLocal;
                 if (USE_WS) {
                     sendSubscriptionRequest(idx);
                 } else {
@@ -3964,7 +3964,7 @@
 
             // ─── Initialize ───
             initCharts();
-            const USE_WEBSOCKETS_GLOBAL = true;
+            const USE_WEBSOCKETS_GLOBAL = isLocal;
             if (USE_WEBSOCKETS_GLOBAL) {
                 connectLiveWebSocket();
             }
