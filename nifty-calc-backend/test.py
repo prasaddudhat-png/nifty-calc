@@ -4,7 +4,7 @@ import time
 import json
 import asyncio
 
-API_KEY = "ZPRhVmeD"
+API_KEY = "sQ28fQ2S"
 CLIENT_CODE = "AACF564128"
 PIN = "2008"
 TOTP_SECRET = "627O7ZONJSMTW6PKVFZT7M3BZE"

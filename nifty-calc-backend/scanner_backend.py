@@ -70,7 +70,7 @@ PIN = ""
 TOTP_SECRET = ""
 
 # Check if running in a container with a persistent /data mount (e.g. Railway)
-DATA_DIR = "/data" if os.path.exists("/data") else os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = "/data" if (os.path.exists("/data") and os.access("/data", os.W_OK)) else os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(DATA_DIR, "api_config.json")
 
 def load_credentials():
@@ -310,12 +310,26 @@ async def fetch_instrument_list():
     if raw_instrument_list and time.time() - last_instrument_fetch < 86400:
         return True
 
-    local_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "instruments.json")
+    local_file = os.path.join(DATA_DIR, "instruments.json")
+    package_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "instruments.json")
     try:
         file_is_fresh = False
         if os.path.exists(local_file):
             file_age = time.time() - os.path.getmtime(local_file)
             if file_age < 86400:
+                file_is_fresh = True
+
+        # If local file is missing or stale, try to copy from pre-packaged instruments.json
+        if not file_is_fresh and os.path.exists(package_file):
+            package_age = time.time() - os.path.getmtime(package_file)
+            if not os.path.exists(local_file) or package_age < file_age or (os.path.exists(local_file) and file_age > 86400):
+                if local_file != package_file:
+                    try:
+                        import shutil
+                        shutil.copy2(package_file, local_file)
+                        print(f"[Scanner] Copied packaged instruments.json to {local_file}")
+                    except Exception as e:
+                        print(f"[Scanner] Failed to copy package_file to local_file: {e}")
                 file_is_fresh = True
 
         if file_is_fresh:
