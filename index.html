@@ -1250,17 +1250,25 @@
                 }
             };
 
-            // ─── LocalStorage Persistence Helpers ───
-            // Key is symbol-only so multi-day data persists across page reloads
-            function getChartKey(symbol) {
-                return `autocalc_chart_${symbol}`;
+            // Cleanup legacy large P/D history keys from localStorage to prevent thread blocking & slow fetching
+            function cleanupLegacyLocalStorage() {
+                try {
+                    const keysToRemove = [];
+                    for (let i = 0; i < localStorage.length; i++) {
+                        const key = localStorage.key(i);
+                        if (key && (key.startsWith('autocalc_chart_') || /^autocalc_2\d{3}-\d{2}-\d{2}_/.test(key))) {
+                            keysToRemove.push(key);
+                        }
+                    }
+                    if (keysToRemove.length > 0) {
+                        console.log(`[LocalStorage Cleanup] Removing ${keysToRemove.length} legacy P/D history keys:`, keysToRemove);
+                        keysToRemove.forEach(key => localStorage.removeItem(key));
+                    }
+                } catch (e) {
+                    console.error('[LocalStorage Cleanup] Failed to clear legacy keys:', e);
+                }
             }
-            // Old date-specific key (for migration)
-            function getOldDateKey(symbol, d) {
-                if (!d) d = new Date();
-                const dateStr = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-                return `autocalc_${dateStr}_${symbol}`;
-            }
+            cleanupLegacyLocalStorage();
 
             let visibleBoxes = 1;
 
