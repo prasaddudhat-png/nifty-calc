@@ -237,7 +237,13 @@
     <script>
         // Read custom backend/scanner server URLs from localStorage
         let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+        if (savedBackendUrl && !/^https?:\/\//i.test(savedBackendUrl)) {
+            savedBackendUrl = 'http://' + savedBackendUrl;
+        }
         let savedScannerUrl = localStorage.getItem('nifty_calc_scanner_url');
+        if (savedScannerUrl && !/^https?:\/\//i.test(savedScannerUrl)) {
+            savedScannerUrl = 'http://' + savedScannerUrl;
+        }
 
         const host = window.location.hostname || 'localhost';
         const protocol = window.location.protocol;
@@ -354,9 +360,19 @@
             let backendUrl = document.getElementById('backendApiUrl').value.trim();
             let scannerUrl = document.getElementById('scannerApiUrl').value.trim();
             
-            // Clean up trailing slashes
-            if (backendUrl.endsWith('/')) backendUrl = backendUrl.slice(0, -1);
-            if (scannerUrl.endsWith('/')) scannerUrl = scannerUrl.slice(0, -1);
+            // Clean up trailing slashes and ensure protocol prefix
+            if (backendUrl) {
+                if (!/^https?:\/\//i.test(backendUrl)) {
+                    backendUrl = 'http://' + backendUrl;
+                }
+                if (backendUrl.endsWith('/')) backendUrl = backendUrl.slice(0, -1);
+            }
+            if (scannerUrl) {
+                if (!/^https?:\/\//i.test(scannerUrl)) {
+                    scannerUrl = 'http://' + scannerUrl;
+                }
+                if (scannerUrl.endsWith('/')) scannerUrl = scannerUrl.slice(0, -1);
+            }
             
             if (backendUrl) {
                 localStorage.setItem('nifty_calc_backend_url', backendUrl);
@@ -371,10 +387,20 @@
             }
             
             // Re-evaluate API URLs
-            const newBackend = localStorage.getItem('nifty_calc_backend_url');
-            const newScanner = localStorage.getItem('nifty_calc_scanner_url');
+            let newBackend = localStorage.getItem('nifty_calc_backend_url');
+            if (newBackend && !/^https?:\/\//i.test(newBackend)) {
+                newBackend = 'http://' + newBackend;
+            }
+            let newScanner = localStorage.getItem('nifty_calc_scanner_url');
+            if (newScanner && !/^https?:\/\//i.test(newScanner)) {
+                newScanner = 'http://' + newScanner;
+            }
+            
             API_URL = newBackend !== null ? newBackend : (isDev ? `http://${host}:8000` : ``);
             SCANNER_API_URL = newScanner !== null ? newScanner : (isDev ? `http://${host}:8001` : ``);
+            
+            // Update fields to display normalized values
+            loadConnectionUrls();
             
             showToast("Connection settings saved! Reloading backend data...");
             loadSettings();
@@ -391,6 +417,8 @@
             document.body.classList.add('iframe-mobile-mode');
         }
     </script>
+    <!-- Auto-Refresh & Cache storage cleanup -->
+    <script src="auto_refresh.js"></script>
 </body>
 
 </html>

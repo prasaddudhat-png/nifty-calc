@@ -1197,6 +1197,9 @@
             const port = window.location.port;
             const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
             let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+            if (savedBackendUrl && !/^https?:\/\//i.test(savedBackendUrl)) {
+                savedBackendUrl = 'http://' + savedBackendUrl;
+            }
             const isLocal = rawHost === 'localhost' || rawHost === '127.0.0.1' || rawHost.startsWith('192.168.') || rawHost.startsWith('10.') || rawHost.startsWith('172.');
             const _tradeApiBase = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
             let currentUser = 'pra'; // Loaded dynamically from StateStorage
@@ -1358,10 +1361,27 @@
                     const expirySelect = el(`expirySelect${i}`);
                     const expiry = expirySelect ? expirySelect.value : '';
                     const visible = !el(`resultBox${i}`).classList.contains('hidden');
+                    const running = !!boxSymbol[i];
+                    
+                    // Alert settings
+                    const alertUpTarget = boxAlertUpTarget[i];
+                    const alertUpActive = boxAlertUpActive[i];
+                    const alertUpTriggered = boxAlertUpTriggered[i];
+                    const alertDownTarget = boxAlertDownTarget[i];
+                    const alertDownActive = boxAlertDownActive[i];
+                    const alertDownTriggered = boxAlertDownTriggered[i];
+                    const alertUpInput = el(`alertUpTarget${i}`) ? el(`alertUpTarget${i}`).value : '';
+                    const alertDownInput = el(`alertDownTarget${i}`) ? el(`alertDownTarget${i}`).value : '';
+
                     if (visible) visibleCount++;
-                    config.push({ idx: i, symbol, strike, expiry, visible });
+                    config.push({
+                        idx: i, symbol, strike, expiry, visible, running,
+                        alertUpTarget, alertUpActive, alertUpTriggered,
+                        alertDownTarget, alertDownActive, alertDownTriggered,
+                        alertUpInput, alertDownInput
+                    });
                 }
-                await StateStorage.set('autocalc_box_config', {
+                return await StateStorage.set('autocalc_box_config', {
                     visibleBoxes: visibleCount,
                     boxes: config
                 });
@@ -1385,7 +1405,8 @@
                             el(`symbolInput${i}`).value = box.symbol || '';
                             el(`strikeInput${i}`).value = box.strike || '';
 
-                            if (box.symbol) {
+                            const shouldRun = box.running !== undefined ? box.running : !!box.symbol;
+                            if (box.symbol && shouldRun) {
                                 boxSymbol[i] = box.symbol;
                                 if (box.expiry) {
                                     const sel = el(`expirySelect${i}`);
@@ -1400,6 +1421,67 @@
                                     }
                                 }
                                 startBox(i);
+                                
+                                // Restore alert state and UI elements
+                                if (box.alertUpTarget !== undefined && box.alertUpTarget !== null) {
+                                    boxAlertUpTarget[i] = box.alertUpTarget;
+                                    boxAlertUpActive[i] = box.alertUpActive;
+                                    boxAlertUpTriggered[i] = box.alertUpTriggered || false;
+                                    const alertUpInput = el(`alertUpTarget${i}`);
+                                    if (alertUpInput) alertUpInput.value = box.alertUpInput !== undefined ? box.alertUpInput : box.alertUpTarget;
+                                    
+                                    const alertUpBtn = el(`setAlertUpBtn${i}`);
+                                    if (alertUpBtn) {
+                                        if (boxAlertUpTriggered[i]) {
+                                            alertUpBtn.innerText = '🔔 Hit!';
+                                            alertUpBtn.className = 'bg-amber-500 hover:bg-amber-400 text-black text-xs px-3 py-1.5 rounded transition font-bold';
+                                        } else if (boxAlertUpActive[i]) {
+                                            alertUpBtn.innerText = 'Active ✅';
+                                            alertUpBtn.className = 'bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1.5 rounded transition';
+                                        }
+                                    }
+                                }
+                                if (box.alertDownTarget !== undefined && box.alertDownTarget !== null) {
+                                    boxAlertDownTarget[i] = box.alertDownTarget;
+                                    boxAlertDownActive[i] = box.alertDownActive;
+                                    boxAlertDownTriggered[i] = box.alertDownTriggered || false;
+                                    const alertDownInput = el(`alertDownTarget${i}`);
+                                    if (alertDownInput) alertDownInput.value = box.alertDownInput !== undefined ? box.alertDownInput : box.alertDownTarget;
+                                    
+                                    const alertDownBtn = el(`setAlertDownBtn${i}`);
+                                    if (alertDownBtn) {
+                                        if (boxAlertDownTriggered[i]) {
+                                            alertDownBtn.innerText = '🔔 Hit!';
+                                            alertDownBtn.className = 'bg-amber-500 hover:bg-amber-400 text-black text-xs px-3 py-1.5 rounded transition font-bold';
+                                        } else if (boxAlertDownActive[i]) {
+                                            alertDownBtn.innerText = 'Active ✅';
+                                            alertDownBtn.className = 'bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded transition';
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (box.expiry) {
+                                    const sel = el(`expirySelect${i}`);
+                                    if (sel) {
+                                        sel.innerHTML = '';
+                                        const opt = document.createElement('option');
+                                        opt.value = box.expiry;
+                                        opt.text = formatExpiryDate(box.expiry);
+                                        sel.appendChild(opt);
+                                        sel.value = box.expiry;
+                                        sel.style.display = 'inline-block';
+                                    }
+                                }
+                                // Populate alert inputs even if not running
+                                if (box.alertUpTarget !== undefined && box.alertUpTarget !== null) {
+                                    const alertUpInput = el(`alertUpTarget${i}`);
+                                    if (alertUpInput) alertUpInput.value = box.alertUpInput !== undefined ? box.alertUpInput : box.alertUpTarget;
+                                }
+                                if (box.alertDownTarget !== undefined && box.alertDownTarget !== null) {
+                                    const alertDownInput = el(`alertDownTarget${i}`);
+                                    if (alertDownInput) alertDownInput.value = box.alertDownInput !== undefined ? box.alertDownInput : box.alertDownTarget;
+                                }
+                                setBoxStatus(i, 'idle');
                             }
                         }
                         updateGridLayout();
@@ -1416,6 +1498,77 @@
                 // Initialize widget content on startup
                 if (typeof updateWidgetUI === 'function') {
                     updateWidgetUI();
+                }
+            }
+
+            function saveLiveTrackerState() {
+                try {
+                    localStorage.setItem('autocalc_live_tracker_state', JSON.stringify(liveTrackerState));
+                } catch(e) {
+                    console.warn('[LiveTracker] Failed to save live tracker state:', e);
+                }
+            }
+
+            function loadLiveTrackerState() {
+                try {
+                    const saved = localStorage.getItem('autocalc_live_tracker_state');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((state, idx) => {
+                                if (state && state.active) {
+                                    const lt = liveTrackerState[idx];
+                                    Object.assign(lt, state);
+                                    
+                                    // Restore UI elements for this box
+                                    const dirEl = el(`liveDir${idx}`);
+                                    if (dirEl) dirEl.value = lt.direction;
+                                    
+                                    const lotsEl = el(`liveLots${idx}`);
+                                    if (lotsEl) lotsEl.value = lt.lots;
+                                    
+                                    const multEl = el(`liveLotMult${idx}`);
+                                    if (multEl) multEl.value = lt.lotMult / lt.lots;
+                                    
+                                    updateQty(idx);
+                                    
+                                    const strikeEl = el(`liveLockStrike${idx}`);
+                                    if (strikeEl) strikeEl.innerText = lt.lockedStrike;
+                                    
+                                    const spotEl = el(`liveEntrySpot${idx}`);
+                                    if (spotEl) spotEl.innerText = lt.entrySpot ? lt.entrySpot.toFixed(2) : '--';
+                                    
+                                    const callEl = el(`liveEntryCall${idx}`);
+                                    if (callEl) callEl.innerText = lt.entryCall ? lt.entryCall.toFixed(2) : '--';
+                                    
+                                    const putEl = el(`liveEntryPut${idx}`);
+                                    if (putEl) putEl.innerText = lt.entryPut ? lt.entryPut.toFixed(2) : '--';
+                                    
+                                    const pdEl = el(`liveEntryPD${idx}`);
+                                    if (pdEl) {
+                                        const pdVal = lt.entryCall - lt.entryPut;
+                                        pdEl.innerText = pdVal > 0 ? '+' + pdVal.toFixed(2) : pdVal.toFixed(2);
+                                    }
+                                    
+                                    const panelEl = el(`livePanel${idx}`);
+                                    if (panelEl) panelEl.style.display = 'block';
+                                    
+                                    const exitEl = el(`btnLiveExit${idx}`);
+                                    if (exitEl) exitEl.style.display = 'block';
+                                    
+                                    // Force the strikeInput to be the locked strike so the box fetches the correct data!
+                                    if (lt.lockedStrike) {
+                                        const inputEl = el(`strikeInput${idx}`);
+                                        if (inputEl) {
+                                            inputEl.value = lt.lockedStrike;
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+                } catch(e) {
+                    console.error('[LiveTracker] Failed to load live tracker state:', e);
                 }
             }
 
@@ -3388,6 +3541,15 @@
             // ─── Box Polling Loop ───
             let isHttpFallbackActive = false;
             let wsFallbackTimer = null;
+            let wsWatchdogTimer = null;
+
+            function resetWsWatchdog() {
+                if (wsWatchdogTimer) clearTimeout(wsWatchdogTimer);
+                wsWatchdogTimer = setTimeout(() => {
+                    console.warn("[WS] Watchdog timed out (no messages for 6 seconds). Falling back to HTTP polling.");
+                    switchToHttpPolling();
+                }, 6000);
+            }
 
             function switchToHttpPolling() {
                 if (isHttpFallbackActive) return;
@@ -3414,7 +3576,11 @@
                 let wsUrl;
                 if (_tradeApiBase) {
                     try {
-                        const urlObj = new URL(_tradeApiBase);
+                        let normalizedBase = _tradeApiBase;
+                        if (!/^https?:\/\//i.test(normalizedBase)) {
+                            normalizedBase = 'http://' + normalizedBase;
+                        }
+                        const urlObj = new URL(normalizedBase);
                         const wsProtocol = urlObj.protocol === 'https:' ? 'wss:' : 'ws:';
                         wsUrl = `${wsProtocol}//${urlObj.host}/ws/live`;
                     } catch (e) {
@@ -3468,6 +3634,8 @@
                         clearTimeout(wsReconnectTimer);
                         wsReconnectTimer = null;
                     }
+                    // Start watchdog on successful connection
+                    resetWsWatchdog();
                     // Resubscribe all active boxes
                     for (let idx = 0; idx < NUM_BOXES; idx++) {
                         sendSubscriptionRequest(idx);
@@ -3475,6 +3643,7 @@
                 };
                 
                 liveSocket.onmessage = (event) => {
+                    resetWsWatchdog();
                     try {
                         const msg = JSON.parse(event.data);
                         if (msg.type === 'update') {
@@ -3528,6 +3697,10 @@
                         clearTimeout(wsFallbackTimer);
                         wsFallbackTimer = null;
                     }
+                    if (wsWatchdogTimer) {
+                        clearTimeout(wsWatchdogTimer);
+                        wsWatchdogTimer = null;
+                    }
                     
                     // If we are not already on HTTP fallback, trigger it on close
                     switchToHttpPolling();
@@ -3557,6 +3730,10 @@
                     if (wsFallbackTimer) {
                         clearTimeout(wsFallbackTimer);
                         wsFallbackTimer = null;
+                    }
+                    if (wsWatchdogTimer) {
+                        clearTimeout(wsWatchdogTimer);
+                        wsWatchdogTimer = null;
                     }
                     switchToHttpPolling();
                 };
@@ -3854,6 +4031,7 @@
                         btnEl.innerText = 'Set';
                         btnEl.className = 'bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded transition';
                     }
+                    saveBoxConfig();
                     return;
                 }
 
@@ -3879,9 +4057,11 @@
                 if (typeof updateWidgetUI === 'function') {
                     updateWidgetUI();
                 }
+                saveBoxConfig();
             }
 
             function checkAlert(idx, currentDiff) {
+                let changed = false;
                 // Check Upside Monitor (P/D rises to or above target)
                 if (boxAlertUpActive[idx] && boxAlertUpTarget[idx] !== null && !boxAlertUpTriggered[idx]) {
                     if (currentDiff >= boxAlertUpTarget[idx]) {
@@ -3903,6 +4083,7 @@
                         } else {
                             console.log(msg);
                         }
+                        changed = true;
                     }
                 }
 
@@ -3927,7 +4108,12 @@
                         } else {
                             console.log(msg);
                         }
+                        changed = true;
                     }
+                }
+                
+                if (changed) {
+                    saveBoxConfig();
                 }
             }
 
@@ -3980,6 +4166,7 @@
 
             // Auto-start boxes from backend config
             loadBoxConfig();
+            loadLiveTrackerState();
 
             function enterLivePos(idx) {
                 const data = lastFetchData[idx];
@@ -4045,6 +4232,10 @@
                 // Keep Entry button visible for concurrent trades
                 el(`btnLiveExit${idx}`).style.display = 'block';
                 
+                // Save box config and live tracker state for reload recovery
+                saveBoxConfig();
+                saveLiveTrackerState();
+                
                 // Immediately force a box fetch to transition to the locked strike
                 triggerFetch(idx);
             }
@@ -4092,6 +4283,7 @@
                 }
 
                 liveTrackerState[idx].active = false;
+                saveLiveTrackerState();
                 
                 el(`livePanel${idx}`).style.display = 'none';
                 el(`btnLiveExit${idx}`).style.display = 'none';
@@ -4157,6 +4349,7 @@
                     el(`livePanel${idx}`).style.display = 'none';
                     el(`btnLiveExit${idx}`).style.display = 'none';
                 }
+                saveLiveTrackerState();
             }
 
             async function closeAllPositions(idx) {
@@ -4235,6 +4428,7 @@
 
                 if (closedCount > 0) {
                     saveTradeBook();
+                    saveLiveTrackerState();
                     renderTradeDetails(idx, lastFetchData[idx]);
                 }
 
@@ -4278,6 +4472,8 @@
 
                 el(`strikeInput${idx}`).value = trade.strike;
                 triggerFetch(idx);
+                saveBoxConfig();
+                saveLiveTrackerState();
             }
 
             // ─── Save all box data when page closes ───
@@ -5104,6 +5300,8 @@
 
             fetchServerIP();
         </script>
+        <!-- Auto-Refresh & Cache storage cleanup -->
+        <script src="auto_refresh.js"></script>
 </body>
 
 </html>

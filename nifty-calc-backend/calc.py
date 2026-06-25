@@ -232,17 +232,19 @@ def fetch_instrument_list():
                 file_is_fresh = True
                 
         # If local file is missing or stale, try to copy from pre-packaged instruments.json
+        # Only use pre-packaged file if it is fresh (less than 24h old)
         if not file_is_fresh and os.path.exists(package_file):
             package_age = time.time() - os.path.getmtime(package_file)
-            if not os.path.exists(local_file) or package_age < file_age or (os.path.exists(local_file) and file_age > 86400):
-                if local_file != package_file:
-                    try:
-                        import shutil
-                        shutil.copy2(package_file, local_file)
-                        print(f"Copied packaged instruments.json to {local_file}")
-                    except Exception as e:
-                        print(f"Failed to copy package_file to local_file: {e}")
-                file_is_fresh = True
+            if package_age < 86400:
+                if not os.path.exists(local_file) or package_age < file_age or (os.path.exists(local_file) and file_age > 86400):
+                    if local_file != package_file:
+                        try:
+                            import shutil
+                            shutil.copy2(package_file, local_file)
+                            print(f"Copied packaged instruments.json to {local_file}")
+                        except Exception as e:
+                            print(f"Failed to copy package_file to local_file: {e}")
+                    file_is_fresh = True
 
         if file_is_fresh:
             print("Loading local instruments.json...")
@@ -252,7 +254,27 @@ def fetch_instrument_list():
             url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
             print("Fetching Angel One Instrument List (Cache missing or expired)...")
             response = session.get(url, timeout=30)
-            instrument_list = response.json()
+            raw_data = response.json()
+            
+            # Filter to only keep what we need
+            filtered_list = []
+            for item in raw_data:
+                seg = item.get("exch_seg", "")
+                sym = item.get("symbol", "")
+                itype = item.get("instrumenttype", "")
+                name = item.get("name", "")
+                
+                is_nse_eq = (seg == "NSE" and itype == "" and sym.endswith("-EQ"))
+                is_bse_eq = (seg == "BSE" and itype == "" and sym.endswith("-EQ"))
+                is_nfo_optstk = (seg == "NFO" and itype == "OPTSTK" and name)
+                is_idx_opt = (seg in ["NFO", "BFO"] and itype == "OPTIDX" and name)
+                is_futures = (seg == "NFO" and itype in ["FUTSTK", "FUTIDX"] and name)
+                is_mcx = (seg == "MCX" and itype == "FUTCOM" and name)
+                
+                if is_nse_eq or is_bse_eq or is_nfo_optstk or is_idx_opt or is_futures or is_mcx:
+                    filtered_list.append(item)
+            
+            instrument_list = filtered_list
             try:
                 with open(local_file, 'w', encoding='utf-8') as f:
                     json.dump(instrument_list, f)
@@ -354,12 +376,14 @@ import time
 api_lock = threading.Lock()
 last_api_call_time = 0.0
 synthetic_cache = {}
+generic_synthetic_cache = {}
+SYNTHETIC_CACHE_TTL = 0.05
 
 def wait_for_api_rate_limit():
     global last_api_call_time
     now = time.time()
-    if now - last_api_call_time < 0.5:
-        time.sleep(0.5 - (now - last_api_call_time))
+    if now - last_api_call_time < 0.35:
+        time.sleep(0.35 - (now - last_api_call_time))
     last_api_call_time = time.time()
 
 def get_ltp(exchange, tradingsymbol, symboltoken):
@@ -369,7 +393,7 @@ def get_ltp(exchange, tradingsymbol, symboltoken):
     
     if cache_key in ltp_cache:
         last_time, last_price = ltp_cache[cache_key]
-        if current_time - last_time < 1.5:
+        if current_time - last_time < 0.33:
             return last_price
 
     with api_lock:
@@ -578,7 +602,7 @@ def get_synthetic_future(strike: float = None, expiry: str = None):
     now = time.time()
     if cache_key in synthetic_cache:
         cached_time, cached_result = synthetic_cache[cache_key]
-        if now - cached_time < 1.0:
+        if now - cached_time < 0.05:
             return cached_result
 
     if not fetch_instrument_list():
@@ -1292,6 +1316,15 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
     symbol = symbol.strip().upper()
     if not symbol:
         return {"success": False, "error": "No symbol provided"}
+
+    global generic_synthetic_cache
+    cache_key = (symbol, strike, expiry)
+    now = time.time()
+    if cache_key in generic_synthetic_cache:
+        cached_time, cached_result = generic_synthetic_cache[cache_key]
+        if now - cached_time < SYNTHETIC_CACHE_TTL:
+            return cached_result
+
     if not fetch_instrument_list():
         return {"success": False, "error": "Failed to load instruments"}
 
@@ -1301,40 +1334,50 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
     spot_price = 0.0
     if is_index:
         exch, spot_tok, strike_interval = INDEX_SPOT_TOKENS[symbol]
-        for attempt in range(3):
-            spot_data = get_bulk_ltp({exch: [spot_tok]})
-            spot_price = spot_data.get(spot_tok, 0.0)
-            if spot_price > 0:
-                break
-            print(f"[SymSynth] {symbol} spot=0, retry {attempt+1}/3...")
-            time.sleep(0.5)
-        
-        # Robust fallback using getLtpData (get_ltp) when bulk LTP returns 0 (e.g. market closed)
+        spot_price = get_cached_live_price(spot_tok, 0.33)
         if spot_price <= 0:
-            trading_sym = INDEX_SPOT_TRADING_SYMBOLS.get(spot_tok)
-            if trading_sym:
-                print(f"[SymSynth] {symbol} spot=0 from bulk, falling back to get_ltp using trading symbol '{trading_sym}'...")
-                spot_price = get_ltp(exch, trading_sym, spot_tok)
+            for attempt in range(3):
+                spot_data = get_bulk_ltp({exch: [spot_tok]})
+                spot_price = spot_data.get(spot_tok, 0.0)
+                if spot_price > 0:
+                    set_cached_live_price(spot_tok, spot_price, "api")
+                    break
+                print(f"[SymSynth] {symbol} spot=0, retry {attempt+1}/3...")
+                time.sleep(0.5)
+            
+            # Robust fallback using getLtpData (get_ltp) when bulk LTP returns 0 (e.g. market closed)
+            if spot_price <= 0:
+                trading_sym = INDEX_SPOT_TRADING_SYMBOLS.get(spot_tok)
+                if trading_sym:
+                    print(f"[SymSynth] {symbol} spot=0 from bulk, falling back to get_ltp using trading symbol '{trading_sym}'...")
+                    spot_price = get_ltp(exch, trading_sym, spot_tok)
+                    if spot_price > 0:
+                        set_cached_live_price(spot_tok, spot_price, "api")
     else:
         eq = _find_equity_token(symbol)
         if not eq:
             return {"success": False, "error": f"'{symbol}' not found in NSE equity list"}
         spot_tok = eq["token"]
         strike_interval = 50
-        for attempt in range(3):
-            spot_data = get_bulk_ltp({"NSE": [spot_tok]})
-            spot_price = spot_data.get(spot_tok, 0.0)
-            if spot_price > 0:
-                break
-            print(f"[SymSynth] {symbol} spot=0, retry {attempt+1}/3...")
-            time.sleep(0.5)
-            
-        # Robust fallback using getLtpData (get_ltp) when bulk LTP returns 0
+        spot_price = get_cached_live_price(spot_tok, 0.33)
         if spot_price <= 0:
-            trading_sym = eq.get("symbol")
-            if trading_sym:
-                print(f"[SymSynth] Stock {symbol} spot=0 from bulk, falling back to get_ltp using trading symbol '{trading_sym}'...")
-                spot_price = get_ltp("NSE", trading_sym, spot_tok)
+            for attempt in range(3):
+                spot_data = get_bulk_ltp({"NSE": [spot_tok]})
+                spot_price = spot_data.get(spot_tok, 0.0)
+                if spot_price > 0:
+                    set_cached_live_price(spot_tok, spot_price, "api")
+                    break
+                print(f"[SymSynth] {symbol} spot=0, retry {attempt+1}/3...")
+                time.sleep(0.5)
+                
+            # Robust fallback using getLtpData (get_ltp) when bulk LTP returns 0
+            if spot_price <= 0:
+                trading_sym = eq.get("symbol")
+                if trading_sym:
+                    print(f"[SymSynth] Stock {symbol} spot=0 from bulk, falling back to get_ltp using trading symbol '{trading_sym}'...")
+                    spot_price = get_ltp("NSE", trading_sym, spot_tok)
+                    if spot_price > 0:
+                        set_cached_live_price(spot_tok, spot_price, "api")
 
     if spot_price <= 0 and not strike:
         err_msg = f"Failed to fetch spot price for {symbol}"
@@ -1362,17 +1405,24 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
         return {"success": False, "error": f"No ATM options found for {symbol} at spot {spot_price:.2f}"}
 
     # ── Fetch option prices (with retry) ──
-    ce_price = 0.0
-    pe_price = 0.0
-    exch_opt = ce.get("exch_seg", "NFO")
-    for attempt in range(3):
-        opt_prices = _batched_ltp_quote(exch_opt, [ce["token"], pe["token"]])
-        ce_price = opt_prices.get(ce["token"], 0.0)
-        pe_price = opt_prices.get(pe["token"], 0.0)
-        if ce_price > 0 or pe_price > 0:
-            break
-        print(f"[SymSynth] {symbol} option prices both 0, retry {attempt+1}/3...")
-        time.sleep(0.5)
+    ce_price = get_cached_live_price(ce["token"], 0.33)
+    pe_price = get_cached_live_price(pe["token"], 0.33)
+    if ce_price <= 0 or pe_price <= 0:
+        ce_price = 0.0
+        pe_price = 0.0
+        exch_opt = ce.get("exch_seg", "NFO")
+        for attempt in range(3):
+            opt_prices = _batched_ltp_quote(exch_opt, [ce["token"], pe["token"]])
+            ce_price = opt_prices.get(ce["token"], 0.0)
+            pe_price = opt_prices.get(pe["token"], 0.0)
+            if ce_price > 0:
+                set_cached_live_price(ce["token"], ce_price, "api")
+            if pe_price > 0:
+                set_cached_live_price(pe["token"], pe_price, "api")
+            if ce_price > 0 or pe_price > 0:
+                break
+            print(f"[SymSynth] {symbol} option prices both 0, retry {attempt+1}/3...")
+            time.sleep(0.5)
 
     synthetic = atm + ce_price - pe_price
     pd_value = round(synthetic - spot_price, 2)
@@ -1394,7 +1444,7 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
         premium_discount=pd_value
     )
 
-    return {
+    res = {
         "success": True,
         "symbol": symbol,
         "is_index": is_index,
@@ -1408,6 +1458,265 @@ def get_symbol_synthetic(symbol: str, strike: float = None, expiry: str = None):
         "synthetic_future": round(synthetic, 2),
         "premium_discount": pd_value
     }
+    generic_synthetic_cache[cache_key] = (time.time(), res)
+    return res
+
+
+@app.get("/api/symbol/synthetic/bulk")
+def get_symbol_synthetic_bulk(data: str):
+    """
+    Bulk synthetic future endpoint.
+    Takes data as a JSON list of requests:
+    [{"box": 0, "symbol": "NIFTY", "strike": 22000, "expiry": "26JUN2026"}, ...]
+    Returns a dictionary of box index to synthetic results.
+    """
+    import json
+    try:
+        requests = json.loads(data)
+    except Exception as e:
+        return {"success": False, "error": f"Invalid JSON data: {e}"}
+
+    if not isinstance(requests, list):
+        return {"success": False, "error": "data must be a JSON array"}
+
+    if not fetch_instrument_list():
+        return {"success": False, "error": "Failed to load instruments"}
+
+    global generic_synthetic_cache
+    now = time.time()
+    results = {}
+    remaining_reqs = []
+
+    # 1. Check cache first for all requests
+    for req in requests:
+        box_idx = req.get("box")
+        symbol = req.get("symbol")
+        if box_idx is None or not symbol:
+            continue
+        symbol = symbol.strip().upper()
+        strike = req.get("strike")
+        expiry = req.get("expiry")
+
+        cache_key = (symbol, strike, expiry)
+        if cache_key in generic_synthetic_cache:
+            cached_time, cached_result = generic_synthetic_cache[cache_key]
+            if now - cached_time < SYNTHETIC_CACHE_TTL:
+                results[box_idx] = cached_result
+                continue
+        
+        remaining_reqs.append({
+            "box": box_idx,
+            "symbol": symbol,
+            "strike": strike,
+            "expiry": expiry,
+            "cache_key": cache_key
+        })
+
+    if not remaining_reqs:
+        return {"success": True, "results": results}
+
+    # 2. Resolve spot tokens and exchanges for all remaining requests
+    spot_tokens_by_exch = {}  # exch -> list of tokens
+    resolved_info = {}        # box_idx -> info dict
+    for req in remaining_reqs:
+        box_idx = req["box"]
+        symbol = req["symbol"]
+        
+        is_index = symbol in INDEX_SPOT_TOKENS
+        if is_index:
+            exch, spot_tok, strike_interval = INDEX_SPOT_TOKENS[symbol]
+        else:
+            eq = _find_equity_token(symbol)
+            if not eq:
+                results[box_idx] = {"success": False, "error": f"'{symbol}' not found in NSE equity list"}
+                continue
+            spot_tok = eq["token"]
+            exch = "NSE"
+            strike_interval = 50
+
+        resolved_info[box_idx] = {
+            "symbol": symbol,
+            "is_index": is_index,
+            "spot_tok": spot_tok,
+            "exch": exch,
+            "strike_interval": strike_interval,
+            "strike": req["strike"],
+            "expiry": req["expiry"],
+            "cache_key": req["cache_key"]
+        }
+        spot_tokens_by_exch.setdefault(exch, []).append(spot_tok)
+
+    # Remove duplicates from spot list
+    for exch in spot_tokens_by_exch:
+        spot_tokens_by_exch[exch] = list(set(spot_tokens_by_exch[exch]))
+
+    # 3. Fetch spot prices in bulk
+    spot_prices = {}
+    spot_tokens_to_fetch = {}
+    for exch, tokens in spot_tokens_by_exch.items():
+        for token in tokens:
+            price = get_cached_live_price(token, 0.33)
+            if price > 0:
+                spot_prices[token] = price
+            else:
+                spot_tokens_to_fetch.setdefault(exch, []).append(token)
+
+    if spot_tokens_to_fetch:
+        fetched_spots = get_bulk_ltp(spot_tokens_to_fetch)
+        spot_prices.update(fetched_spots)
+        for token, price in fetched_spots.items():
+            if price > 0:
+                set_cached_live_price(token, price, "api")
+
+    # 4. Resolve ATM option chains and CE/PE tokens for each resolved request
+    options_tokens_by_exch = {}  # exch -> list of tokens
+    option_resolutions = {}      # box_idx -> options info
+    for box_idx, info in resolved_info.items():
+        symbol = info["symbol"]
+        is_index = info["is_index"]
+        spot_tok = info["spot_tok"]
+        exch = info["exch"]
+        strike_interval = info["strike_interval"]
+        strike = info["strike"]
+        expiry = info["expiry"]
+
+        spot_price = spot_prices.get(spot_tok, 0.0)
+        
+        # Fallback to get_ltp for spot if bulk returns 0
+        if spot_price <= 0:
+            if is_index:
+                trading_sym = INDEX_SPOT_TRADING_SYMBOLS.get(spot_tok)
+                if trading_sym:
+                    spot_price = get_ltp(exch, trading_sym, spot_tok)
+            else:
+                eq = _find_equity_token(symbol)
+                if eq and eq.get("symbol"):
+                    spot_price = get_ltp("NSE", eq["symbol"], spot_tok)
+
+        if spot_price <= 0 and not strike:
+            results[box_idx] = {"success": False, "error": f"Failed to fetch spot price for {symbol}"}
+            continue
+        elif spot_price <= 0 and strike:
+            spot_price = 0.0
+
+        # Resolve options
+        if is_index:
+            ce, pe, atm, T, exp, all_expiries = _find_index_options(symbol, spot_price, strike_interval, strike, expiry)
+        else:
+            ce, pe, atm, T, exp, all_expiries = _find_atm_options(symbol, spot_price, strike, expiry)
+
+        if not ce or not pe:
+            results[box_idx] = {"success": False, "error": f"No ATM options found for {symbol} at spot {spot_price:.2f}"}
+            continue
+
+        exch_opt = ce.get("exch_seg", "NFO")
+        options_tokens_by_exch.setdefault(exch_opt, []).extend([ce["token"], pe["token"]])
+        
+        option_resolutions[box_idx] = {
+            "ce": ce,
+            "pe": pe,
+            "atm": atm,
+            "exp": exp,
+            "all_expiries": all_expiries,
+            "spot_price": spot_price,
+            "exch_opt": exch_opt
+        }
+
+    # Remove duplicates from options list
+    for exch in options_tokens_by_exch:
+        options_tokens_by_exch[exch] = list(set(options_tokens_by_exch[exch]))
+
+    # 5. Fetch options prices in bulk
+    option_prices = {}
+    options_tokens_to_fetch = {}
+    for exch, tokens in options_tokens_by_exch.items():
+        for token in tokens:
+            price = get_cached_live_price(token, 0.33)
+            if price > 0:
+                option_prices[token] = price
+            else:
+                options_tokens_to_fetch.setdefault(exch, []).append(token)
+
+    if options_tokens_to_fetch:
+        fetched_options = get_bulk_ltp(options_tokens_to_fetch)
+        option_prices.update(fetched_options)
+        for token, price in fetched_options.items():
+            if price > 0:
+                set_cached_live_price(token, price, "api")
+
+    # 6. Calculate synthetic futures, save ticks, and store in cache
+    for box_idx, opt_info in option_resolutions.items():
+        info = resolved_info[box_idx]
+        symbol = info["symbol"]
+        is_index = info["is_index"]
+        cache_key = info["cache_key"]
+        
+        ce = opt_info["ce"]
+        pe = opt_info["pe"]
+        atm = opt_info["atm"]
+        exp = opt_info["exp"]
+        all_expiries = opt_info["all_expiries"]
+        spot_price = opt_info["spot_price"]
+        exch_opt = opt_info["exch_opt"]
+
+        ce_token = ce["token"]
+        pe_token = pe["token"]
+
+        ce_price = option_prices.get(ce_token, 0.0)
+        pe_price = option_prices.get(pe_token, 0.0)
+
+        # Fallback if bulk LTP failed
+        if ce_price <= 0 and pe_price <= 0:
+            fallback_prices = _batched_ltp_quote(exch_opt, [ce_token, pe_token])
+            ce_price = fallback_prices.get(ce_token, 0.0)
+            pe_price = fallback_prices.get(pe_token, 0.0)
+
+        synthetic = atm + ce_price - pe_price
+        pd_value = round(synthetic - spot_price, 2)
+
+        lot_size = 50
+        if ce and "lotsize" in ce:
+            try: lot_size = int(ce["lotsize"])
+            except: pass
+
+        # Record market tick (throttled)
+        save_market_tick(
+            symbol=symbol,
+            strike=atm,
+            expiry=exp,
+            underlying=spot_price,
+            call_price=ce_price,
+            put_price=pe_price,
+            synthetic_future=round(synthetic, 2),
+            premium_discount=pd_value
+        )
+
+        res = {
+            "success": True,
+            "symbol": symbol,
+            "is_index": is_index,
+            "strike": atm,
+            "expiry": exp,
+            "available_expiries": all_expiries,
+            "lot_size": lot_size,
+            "underlying": spot_price,
+            "call_price": ce_price,
+            "put_price": pe_price,
+            "synthetic_future": round(synthetic, 2),
+            "premium_discount": pd_value
+        }
+        
+        # Cache successful results
+        generic_synthetic_cache[cache_key] = (time.time(), res)
+        results[box_idx] = res
+
+    # 7. Add success/error responses for all requests
+    for req in requests:
+        box_idx = req.get("box")
+        if box_idx is not None and box_idx not in results:
+            results[box_idx] = {"success": False, "error": "Failed to calculate synthetic future"}
+
+    return {"success": True, "results": results}
 
 
 def _find_nearest_future(symbol, is_index):
@@ -1969,6 +2278,7 @@ class AngelOneWSManager:
         self.lock = threading.Lock()
         self.reconnect_delay = 5
         self.reconnecting = False
+        self.force_login_refresh = False
         
     def start(self, loop):
         self.loop = loop
@@ -1978,8 +2288,9 @@ class AngelOneWSManager:
         with self.lock:
             if self.is_connected:
                 return
-            # Ensure logged in
-            if not auth_token or not feed_token:
+            # Ensure logged in (refresh if expired or forced due to connection failure)
+            if not auth_token or not feed_token or time.time() - last_login_time > 79200 or self.force_login_refresh:
+                self.force_login_refresh = False
                 login_angel_one()
             if not auth_token or not feed_token:
                 print("[WS] Connection deferred: Login failed. Scheduling retry...")
@@ -2023,7 +2334,10 @@ class AngelOneWSManager:
         
     def _on_close(self, wsapp, *args):
         print(f"[WS] Streaming connection closed: {args}")
+        was_connected = self.is_connected
         self.is_connected = False
+        if not was_connected:
+            self.force_login_refresh = True
         # Trigger reconnect
         with self.lock:
             if not self.reconnecting:
@@ -2094,7 +2408,29 @@ class AngelOneWSManager:
                 print(f"[WS] Unsubscription failed for {token}: {e}")
 
 ws_manager = AngelOneWSManager()
-live_price_cache = {} # token -> price
+live_price_cache = {} # token -> (price, timestamp, source)
+
+def set_cached_live_price(token: str, price: float, source: str):
+    if price > 0:
+        live_price_cache[token] = (price, time.time(), source)
+
+def get_cached_live_price(token: str, max_age: float = 0.33) -> float:
+    if token in live_price_cache:
+        val = live_price_cache[token]
+        if isinstance(val, tuple) and len(val) == 3:
+            price, timestamp, source = val
+            is_ws_active = False
+            try:
+                is_ws_active = ws_manager and ws_manager.is_connected
+            except:
+                pass
+            allowed_age = (300.0 if is_ws_active else 5.0) if source == "ws" else max_age
+            if time.time() - timestamp < allowed_age:
+                return price
+        elif isinstance(val, (int, float)):
+            return float(val)
+    return 0.0
+
 
 class BoxSubscription:
     def __init__(self, box_idx: int):
@@ -2156,7 +2492,7 @@ def get_exchange_type(exch_seg):
 active_connections: Dict[WebSocket, Dict[int, BoxSubscription]] = {}
 
 async def dispatch_price_update(token: str, exchange_type: int, price: float):
-    live_price_cache[token] = price
+    set_cached_live_price(token, price, "ws")
     
     for ws, boxes in list(active_connections.items()):
         for box_idx, sub in list(boxes.items()):
@@ -2243,8 +2579,8 @@ async def resolve_and_subscribe_options(sub: BoxSubscription, spot_price: float)
             except:
                 sub.lot_size = 0
                 
-            ce_price = live_price_cache.get(sub.ce_token, 0.0)
-            pe_price = live_price_cache.get(sub.pe_token, 0.0)
+            ce_price = get_cached_live_price(sub.ce_token, 0.33)
+            pe_price = get_cached_live_price(sub.pe_token, 0.33)
             
             if ce_price <= 0.0 or pe_price <= 0.0:
                 ce_exch = ce["exch_seg"]
@@ -2254,11 +2590,11 @@ async def resolve_and_subscribe_options(sub: BoxSubscription, spot_price: float)
                 if ce_price <= 0.0:
                     ce_price = initial_prices.get(sub.ce_token, 0.0)
                     if ce_price > 0.0:
-                        live_price_cache[sub.ce_token] = ce_price
+                        set_cached_live_price(sub.ce_token, ce_price, "api")
                 if pe_price <= 0.0:
                     pe_price = initial_prices.get(sub.pe_token, 0.0)
                     if pe_price > 0.0:
-                        live_price_cache[sub.pe_token] = pe_price
+                        set_cached_live_price(sub.pe_token, pe_price, "api")
                         
             sub.last_ce_price = ce_price
             sub.last_pe_price = pe_price
@@ -2354,7 +2690,7 @@ async def handle_client_subscribe(ws: WebSocket, payload: dict):
     
     ws_manager.subscribe(sub.spot_exchange_type, sub.spot_token)
     
-    spot_price = live_price_cache.get(spot_tok, 0.0)
+    spot_price = get_cached_live_price(spot_tok, 0.33)
     if spot_price <= 0:
         loop = asyncio.get_event_loop()
         if is_index:
@@ -2367,7 +2703,7 @@ async def handle_client_subscribe(ws: WebSocket, payload: dict):
             
     if spot_price > 0:
         sub.last_spot_price = spot_price
-        live_price_cache[spot_tok] = spot_price
+        set_cached_live_price(spot_tok, spot_price, "api")
         await resolve_and_subscribe_options(sub, spot_price)
         await send_box_update(ws, sub)
     else:
@@ -2393,6 +2729,13 @@ async def websocket_live(websocket: WebSocket):
             action = data.get("action")
             if action == "subscribe":
                 asyncio.create_task(handle_client_subscribe(websocket, data))
+            elif action == "unsubscribe":
+                box_idx = data.get("box")
+                if box_idx is not None and websocket in active_connections:
+                    if box_idx in active_connections[websocket]:
+                        sub = active_connections[websocket].pop(box_idx)
+                        sub.unsubscribe_all()
+                        print(f"[WS] Client unsubscribed box {box_idx}")
     except WebSocketDisconnect:
         print(f"[WS] Client disconnected: {websocket.client}")
     except Exception as e:

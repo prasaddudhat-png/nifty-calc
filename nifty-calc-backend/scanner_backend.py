@@ -320,17 +320,19 @@ async def fetch_instrument_list():
                 file_is_fresh = True
 
         # If local file is missing or stale, try to copy from pre-packaged instruments.json
+        # Only use pre-packaged file if it is fresh (less than 24h old)
         if not file_is_fresh and os.path.exists(package_file):
             package_age = time.time() - os.path.getmtime(package_file)
-            if not os.path.exists(local_file) or package_age < file_age or (os.path.exists(local_file) and file_age > 86400):
-                if local_file != package_file:
-                    try:
-                        import shutil
-                        shutil.copy2(package_file, local_file)
-                        print(f"[Scanner] Copied packaged instruments.json to {local_file}")
-                    except Exception as e:
-                        print(f"[Scanner] Failed to copy package_file to local_file: {e}")
-                file_is_fresh = True
+            if package_age < 86400:
+                if not os.path.exists(local_file) or package_age < file_age or (os.path.exists(local_file) and file_age > 86400):
+                    if local_file != package_file:
+                        try:
+                            import shutil
+                            shutil.copy2(package_file, local_file)
+                            print(f"[Scanner] Copied packaged instruments.json to {local_file}")
+                        except Exception as e:
+                            print(f"[Scanner] Failed to copy package_file to local_file: {e}")
+                    file_is_fresh = True
 
         if file_is_fresh:
             print("[Scanner] Loading local instruments.json...")
@@ -340,7 +342,27 @@ async def fetch_instrument_list():
             url = "https://margincalculator.angelbroking.com/OpenAPI_File/files/OpenAPIScripMaster.json"
             print("[Scanner] Downloading instrument list...")
             response = await http_client.get(url, timeout=30.0)
-            raw_instrument_list = response.json()
+            raw_data = response.json()
+            
+            # Filter to only keep what we need
+            filtered_list = []
+            for item in raw_data:
+                seg = item.get("exch_seg", "")
+                sym = item.get("symbol", "")
+                itype = item.get("instrumenttype", "")
+                name = item.get("name", "")
+                
+                is_nse_eq = (seg == "NSE" and itype == "" and sym.endswith("-EQ"))
+                is_bse_eq = (seg == "BSE" and itype == "" and sym.endswith("-EQ"))
+                is_nfo_optstk = (seg == "NFO" and itype == "OPTSTK" and name)
+                is_idx_opt = (seg in ["NFO", "BFO"] and itype == "OPTIDX" and name)
+                is_futures = (seg == "NFO" and itype in ["FUTSTK", "FUTIDX"] and name)
+                is_mcx = (seg == "MCX" and itype == "FUTCOM" and name)
+                
+                if is_nse_eq or is_bse_eq or is_nfo_optstk or is_idx_opt or is_futures or is_mcx:
+                    filtered_list.append(item)
+            
+            raw_instrument_list = filtered_list
             try:
                 with open(local_file, 'w', encoding='utf-8') as f:
                     json.dump(raw_instrument_list, f)

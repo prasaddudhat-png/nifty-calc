@@ -175,13 +175,13 @@ async def get_ltp(exchange, tradingsymbol, symboltoken):
     
     if cache_key in ltp_cache:
         last_time, last_price = ltp_cache[cache_key]
-        if current_time - last_time < 0.9:
+        if current_time - last_time < 0.33:
             return last_price
 
     async with api_lock:
         if cache_key in ltp_cache:
             last_time, last_price = ltp_cache[cache_key]
-            if time.time() - last_time < 0.9:
+            if time.time() - last_time < 0.33:
                 return last_price
                 
         now = time.time()
@@ -252,10 +252,10 @@ async def get_nfo_quotes(ce_symbol, ce_token, pe_symbol, pe_token):
     ce_price = pe_price = 0.0
     ce_cached = pe_cached = False
     
-    if ce_key in ltp_cache and current_time - ltp_cache[ce_key][0] < 0.9:
+    if ce_key in ltp_cache and current_time - ltp_cache[ce_key][0] < 0.33:
         ce_price = ltp_cache[ce_key][1]
         ce_cached = True
-    if pe_key in ltp_cache and current_time - ltp_cache[pe_key][0] < 0.9:
+    if pe_key in ltp_cache and current_time - ltp_cache[pe_key][0] < 0.33:
         pe_price = ltp_cache[pe_key][1]
         pe_cached = True
         
@@ -263,10 +263,10 @@ async def get_nfo_quotes(ce_symbol, ce_token, pe_symbol, pe_token):
         return ce_price, pe_price
         
     async with api_lock:
-        if ce_key in ltp_cache and time.time() - ltp_cache[ce_key][0] < 0.9:
+        if ce_key in ltp_cache and time.time() - ltp_cache[ce_key][0] < 0.33:
             ce_price = ltp_cache[ce_key][1]
             ce_cached = True
-        if pe_key in ltp_cache and time.time() - ltp_cache[pe_key][0] < 0.9:
+        if pe_key in ltp_cache and time.time() - ltp_cache[pe_key][0] < 0.33:
             pe_price = ltp_cache[pe_key][1]
             pe_cached = True
             

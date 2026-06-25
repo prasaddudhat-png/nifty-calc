@@ -8,12 +8,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -495,37 +489,7 @@
                     </div>
                 </div>
 
-                <!-- Chart Toggle Header -->
-                <div class="flex justify-between items-center mt-4 mb-2 px-2">
-                    <div class="flex items-center gap-2">
-                        <span class="data-label opacity-70">Premium/Discount History</span>
-                        <button id="toggleAllExpiries0" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-amber-400 transition cursor-pointer bg-transparent border border-[#2d2640] hover:border-amber-500/40 rounded px-2 py-0.5" onclick="toggleAllExpiries(0)" title="Show all expiry data on chart">
-                            <i class="ph ph-stack"></i> Show All
-                        </button>
-                    </div>
-                    <button id="toggleChart0" class="text-xs flex items-center gap-1 text-[#8b85a1] hover:text-white transition cursor-pointer bg-transparent border-0 p-1" onclick="toggleChart(0)">
-                        <i class="ph ph-caret-down"></i> Hide Chart
-                    </button>
-                </div>
 
-                <!-- Chart Container -->
-                <div id="chartContainer0" class="chart-card fade-in mt-0">
-                    <div class="absolute top-2 right-2 z-20 flex gap-2">
-                        <button onclick="importChartData(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Import Open Trades (CSV)">
-                            <i class="ph ph-file-arrow-up"></i>
-                        </button>
-                        <button onclick="exportChartData(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Export CSV">
-                            <i class="ph ph-file-csv"></i>
-                        </button>
-                        <button onclick="resetChartZoom(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Reset Zoom">
-                            <i class="ph ph-arrows-counter-clockwise"></i>
-                        </button>
-                        <button onclick="clearChartData(0)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 transition" title="Clear Chart">
-                            <i class="ph ph-trash"></i>
-                        </button>
-                    </div>
-                    <canvas id="miniCalcChart0"></canvas>
-                </div>
                 <!-- Trade Details -->
                 <div class="px-2 mt-4 mb-2">
                     <div class="flex justify-between items-center mb-2">
@@ -665,37 +629,7 @@
                     </div>
                 </div>
 
-                <!-- Chart Toggle Header -->
-                <div class="flex justify-between items-center mt-4 mb-2 px-2">
-                    <div class="flex items-center gap-2">
-                        <span class="data-label opacity-70">Premium/Discount History</span>
-                        <button id="toggleAllExpiries1" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-amber-400 transition cursor-pointer bg-transparent border border-[#2d2640] hover:border-amber-500/40 rounded px-2 py-0.5" onclick="toggleAllExpiries(1)" title="Show all expiry data on chart">
-                            <i class="ph ph-stack"></i> Show All
-                        </button>
-                    </div>
-                    <button id="toggleChart1" class="text-xs flex items-center gap-1 text-[#8b85a1] hover:text-white transition cursor-pointer bg-transparent border-0 p-1" onclick="toggleChart(1)">
-                        <i class="ph ph-caret-down"></i> Hide Chart
-                    </button>
-                </div>
 
-                <!-- Chart Container -->
-                <div id="chartContainer1" class="chart-card fade-in mt-0">
-                    <div class="absolute top-2 right-2 z-20 flex gap-2">
-                        <button onclick="importChartData(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Import Open Trades (CSV)">
-                            <i class="ph ph-file-arrow-up"></i>
-                        </button>
-                        <button onclick="exportChartData(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Export CSV">
-                            <i class="ph ph-file-csv"></i>
-                        </button>
-                        <button onclick="resetChartZoom(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Reset Zoom">
-                            <i class="ph ph-arrows-counter-clockwise"></i>
-                        </button>
-                        <button onclick="clearChartData(1)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 transition" title="Clear Chart">
-                            <i class="ph ph-trash"></i>
-                        </button>
-                    </div>
-                    <canvas id="miniCalcChart1"></canvas>
-                </div>
                 <!-- Trade Details -->
                 <div class="px-2 mt-4 mb-2">
                     <div class="flex justify-between items-center mb-2">
@@ -835,37 +769,7 @@
                     </div>
                 </div>
 
-                <!-- Chart Toggle Header -->
-                <div class="flex justify-between items-center mt-4 mb-2 px-2">
-                    <div class="flex items-center gap-2">
-                        <span class="data-label opacity-70">Premium/Discount History</span>
-                        <button id="toggleAllExpiries2" class="text-[10px] flex items-center gap-1 text-gray-500 hover:text-amber-400 transition cursor-pointer bg-transparent border border-[#2d2640] hover:border-amber-500/40 rounded px-2 py-0.5" onclick="toggleAllExpiries(2)" title="Show all expiry data on chart">
-                            <i class="ph ph-stack"></i> Show All
-                        </button>
-                    </div>
-                    <button id="toggleChart2" class="text-xs flex items-center gap-1 text-[#8b85a1] hover:text-white transition cursor-pointer bg-transparent border-0 p-1" onclick="toggleChart(2)">
-                        <i class="ph ph-caret-down"></i> Hide Chart
-                    </button>
-                </div>
 
-                <!-- Chart Container -->
-                <div id="chartContainer2" class="chart-card fade-in mt-0">
-                    <div class="absolute top-2 right-2 z-20 flex gap-2">
-                        <button onclick="importChartData(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Import Open Trades (CSV)">
-                            <i class="ph ph-file-arrow-up"></i>
-                        </button>
-                        <button onclick="exportChartData(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Export CSV">
-                            <i class="ph ph-file-csv"></i>
-                        </button>
-                        <button onclick="resetChartZoom(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-[#2d2640] text-gray-400 transition" title="Reset Zoom">
-                            <i class="ph ph-arrows-counter-clockwise"></i>
-                        </button>
-                        <button onclick="clearChartData(2)" class="p-2 rounded bg-[#231b2e] border border-[#2d2640] hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50 text-gray-400 transition" title="Clear Chart">
-                            <i class="ph ph-trash"></i>
-                        </button>
-                    </div>
-                    <canvas id="miniCalcChart2"></canvas>
-                </div>
                 <!-- Trade Details -->
                 <div class="px-2 mt-4 mb-2">
                     <div class="flex justify-between items-center mb-2">
@@ -1197,6 +1101,9 @@
             const port = window.location.port;
             const isDev = protocol === 'file:' || (port !== '8000' && port !== '8001' && port !== '');
             let savedBackendUrl = localStorage.getItem('nifty_calc_backend_url');
+            if (savedBackendUrl && !/^https?:\/\//i.test(savedBackendUrl)) {
+                savedBackendUrl = 'http://' + savedBackendUrl;
+            }
             const isLocal = rawHost === 'localhost' || rawHost === '127.0.0.1' || rawHost.startsWith('192.168.') || rawHost.startsWith('10.') || rawHost.startsWith('172.');
             const _tradeApiBase = savedBackendUrl !== null ? savedBackendUrl : (isDev ? `http://${host}:8000` : '');
             let currentUser = 'pra'; // Loaded dynamically from StateStorage
@@ -1358,10 +1265,27 @@
                     const expirySelect = el(`expirySelect${i}`);
                     const expiry = expirySelect ? expirySelect.value : '';
                     const visible = !el(`resultBox${i}`).classList.contains('hidden');
+                    const running = !!boxSymbol[i];
+                    
+                    // Alert settings
+                    const alertUpTarget = boxAlertUpTarget[i];
+                    const alertUpActive = boxAlertUpActive[i];
+                    const alertUpTriggered = boxAlertUpTriggered[i];
+                    const alertDownTarget = boxAlertDownTarget[i];
+                    const alertDownActive = boxAlertDownActive[i];
+                    const alertDownTriggered = boxAlertDownTriggered[i];
+                    const alertUpInput = el(`alertUpTarget${i}`) ? el(`alertUpTarget${i}`).value : '';
+                    const alertDownInput = el(`alertDownTarget${i}`) ? el(`alertDownTarget${i}`).value : '';
+
                     if (visible) visibleCount++;
-                    config.push({ idx: i, symbol, strike, expiry, visible });
+                    config.push({
+                        idx: i, symbol, strike, expiry, visible, running,
+                        alertUpTarget, alertUpActive, alertUpTriggered,
+                        alertDownTarget, alertDownActive, alertDownTriggered,
+                        alertUpInput, alertDownInput
+                    });
                 }
-                await StateStorage.set('autocalc_box_config', {
+                return await StateStorage.set('autocalc_box_config', {
                     visibleBoxes: visibleCount,
                     boxes: config
                 });
@@ -1385,7 +1309,8 @@
                             el(`symbolInput${i}`).value = box.symbol || '';
                             el(`strikeInput${i}`).value = box.strike || '';
 
-                            if (box.symbol) {
+                            const shouldRun = box.running !== undefined ? box.running : !!box.symbol;
+                            if (box.symbol && shouldRun) {
                                 boxSymbol[i] = box.symbol;
                                 if (box.expiry) {
                                     const sel = el(`expirySelect${i}`);
@@ -1400,6 +1325,67 @@
                                     }
                                 }
                                 startBox(i);
+                                
+                                // Restore alert state and UI elements
+                                if (box.alertUpTarget !== undefined && box.alertUpTarget !== null) {
+                                    boxAlertUpTarget[i] = box.alertUpTarget;
+                                    boxAlertUpActive[i] = box.alertUpActive;
+                                    boxAlertUpTriggered[i] = box.alertUpTriggered || false;
+                                    const alertUpInput = el(`alertUpTarget${i}`);
+                                    if (alertUpInput) alertUpInput.value = box.alertUpInput !== undefined ? box.alertUpInput : box.alertUpTarget;
+                                    
+                                    const alertUpBtn = el(`setAlertUpBtn${i}`);
+                                    if (alertUpBtn) {
+                                        if (boxAlertUpTriggered[i]) {
+                                            alertUpBtn.innerText = '🔔 Hit!';
+                                            alertUpBtn.className = 'bg-amber-500 hover:bg-amber-400 text-black text-xs px-3 py-1.5 rounded transition font-bold';
+                                        } else if (boxAlertUpActive[i]) {
+                                            alertUpBtn.innerText = 'Active ✅';
+                                            alertUpBtn.className = 'bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1.5 rounded transition';
+                                        }
+                                    }
+                                }
+                                if (box.alertDownTarget !== undefined && box.alertDownTarget !== null) {
+                                    boxAlertDownTarget[i] = box.alertDownTarget;
+                                    boxAlertDownActive[i] = box.alertDownActive;
+                                    boxAlertDownTriggered[i] = box.alertDownTriggered || false;
+                                    const alertDownInput = el(`alertDownTarget${i}`);
+                                    if (alertDownInput) alertDownInput.value = box.alertDownInput !== undefined ? box.alertDownInput : box.alertDownTarget;
+                                    
+                                    const alertDownBtn = el(`setAlertDownBtn${i}`);
+                                    if (alertDownBtn) {
+                                        if (boxAlertDownTriggered[i]) {
+                                            alertDownBtn.innerText = '🔔 Hit!';
+                                            alertDownBtn.className = 'bg-amber-500 hover:bg-amber-400 text-black text-xs px-3 py-1.5 rounded transition font-bold';
+                                        } else if (boxAlertDownActive[i]) {
+                                            alertDownBtn.innerText = 'Active ✅';
+                                            alertDownBtn.className = 'bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded transition';
+                                        }
+                                    }
+                                }
+                            } else {
+                                if (box.expiry) {
+                                    const sel = el(`expirySelect${i}`);
+                                    if (sel) {
+                                        sel.innerHTML = '';
+                                        const opt = document.createElement('option');
+                                        opt.value = box.expiry;
+                                        opt.text = formatExpiryDate(box.expiry);
+                                        sel.appendChild(opt);
+                                        sel.value = box.expiry;
+                                        sel.style.display = 'inline-block';
+                                    }
+                                }
+                                // Populate alert inputs even if not running
+                                if (box.alertUpTarget !== undefined && box.alertUpTarget !== null) {
+                                    const alertUpInput = el(`alertUpTarget${i}`);
+                                    if (alertUpInput) alertUpInput.value = box.alertUpInput !== undefined ? box.alertUpInput : box.alertUpTarget;
+                                }
+                                if (box.alertDownTarget !== undefined && box.alertDownTarget !== null) {
+                                    const alertDownInput = el(`alertDownTarget${i}`);
+                                    if (alertDownInput) alertDownInput.value = box.alertDownInput !== undefined ? box.alertDownInput : box.alertDownTarget;
+                                }
+                                setBoxStatus(i, 'idle');
                             }
                         }
                         updateGridLayout();
@@ -1416,6 +1402,77 @@
                 // Initialize widget content on startup
                 if (typeof updateWidgetUI === 'function') {
                     updateWidgetUI();
+                }
+            }
+
+            function saveLiveTrackerState() {
+                try {
+                    localStorage.setItem('autocalc_live_tracker_state', JSON.stringify(liveTrackerState));
+                } catch(e) {
+                    console.warn('[LiveTracker] Failed to save live tracker state:', e);
+                }
+            }
+
+            function loadLiveTrackerState() {
+                try {
+                    const saved = localStorage.getItem('autocalc_live_tracker_state');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (Array.isArray(parsed)) {
+                            parsed.forEach((state, idx) => {
+                                if (state && state.active) {
+                                    const lt = liveTrackerState[idx];
+                                    Object.assign(lt, state);
+                                    
+                                    // Restore UI elements for this box
+                                    const dirEl = el(`liveDir${idx}`);
+                                    if (dirEl) dirEl.value = lt.direction;
+                                    
+                                    const lotsEl = el(`liveLots${idx}`);
+                                    if (lotsEl) lotsEl.value = lt.lots;
+                                    
+                                    const multEl = el(`liveLotMult${idx}`);
+                                    if (multEl) multEl.value = lt.lotMult / lt.lots;
+                                    
+                                    updateQty(idx);
+                                    
+                                    const strikeEl = el(`liveLockStrike${idx}`);
+                                    if (strikeEl) strikeEl.innerText = lt.lockedStrike;
+                                    
+                                    const spotEl = el(`liveEntrySpot${idx}`);
+                                    if (spotEl) spotEl.innerText = lt.entrySpot ? lt.entrySpot.toFixed(2) : '--';
+                                    
+                                    const callEl = el(`liveEntryCall${idx}`);
+                                    if (callEl) callEl.innerText = lt.entryCall ? lt.entryCall.toFixed(2) : '--';
+                                    
+                                    const putEl = el(`liveEntryPut${idx}`);
+                                    if (putEl) putEl.innerText = lt.entryPut ? lt.entryPut.toFixed(2) : '--';
+                                    
+                                    const pdEl = el(`liveEntryPD${idx}`);
+                                    if (pdEl) {
+                                        const pdVal = lt.entryCall - lt.entryPut;
+                                        pdEl.innerText = pdVal > 0 ? '+' + pdVal.toFixed(2) : pdVal.toFixed(2);
+                                    }
+                                    
+                                    const panelEl = el(`livePanel${idx}`);
+                                    if (panelEl) panelEl.style.display = 'block';
+                                    
+                                    const exitEl = el(`btnLiveExit${idx}`);
+                                    if (exitEl) exitEl.style.display = 'block';
+                                    
+                                    // Force the strikeInput to be the locked strike so the box fetches the correct data!
+                                    if (lt.lockedStrike) {
+                                        const inputEl = el(`strikeInput${idx}`);
+                                        if (inputEl) {
+                                            inputEl.value = lt.lockedStrike;
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+                } catch(e) {
+                    console.error('[LiveTracker] Failed to load live tracker state:', e);
                 }
             }
 
@@ -1457,6 +1514,7 @@
 
             function rebuildChartDatasets(idx) {
                 const chart = boxChart[idx];
+                if (!chart) return;
                 const history = boxHistory[idx];
 
                 // Group by expiry
@@ -2376,7 +2434,7 @@
 
                 if (needsRebuild) {
                     rebuildChartDatasets(idx);
-                } else {
+                } else if (boxChart[idx]) {
                     const dsIdx = boxExpiryMap[idx][expiry];
                     const dsData = boxChart[idx].data.datasets[dsIdx].data;
                     const currentXVal = toMarketX(tick.time);
@@ -2992,136 +3050,12 @@
 
             // ─── Create Chart Instance ───
             function createChartInstance(ctxId, color) {
-                const ctx = document.getElementById(ctxId).getContext('2d');
-
-                return new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: [],
-                        datasets: [
-                            // No initial P/D datasets — they are created dynamically per expiry
-                            {
-                                label: 'Entry',
-                                data: [],
-                                backgroundColor: '#10b981',
-                                borderColor: '#064e3b',
-                                borderWidth: 2,
-                                pointRadius: 6,
-                                pointHoverRadius: 8,
-                                pointStyle: 'triangle',
-                                rotation: function(context) {
-                                    if (context.raw && context.raw.tradeDetails && context.raw.tradeDetails.direction === 'SHORT') return 180;
-                                    return 0;
-                                },
-                                showLine: false
-                            },
-                            {
-                                label: 'Exit',
-                                data: [],
-                                backgroundColor: '#ef4444',
-                                borderColor: '#7f1d1d',
-                                borderWidth: 2,
-                                pointRadius: 6,
-                                pointHoverRadius: 8,
-                                pointStyle: 'circle',
-                                showLine: false
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        animation: { duration: 0 },
-                        scales: {
-                            x: {
-                                type: 'linear',
-                                suggestedMin: getTodayMarketXRange().min,
-                                suggestedMax: getTodayMarketXRange().max,
-                                display: true,
-                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                ticks: {
-                                    color: '#8b85a1',
-                                    font: { size: 10 },
-                                    stepSize: 15,
-                                    callback: function(value) {
-                                        const realDate = fromMarketX(value);
-                                        return realDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false });
-                                    }
-                                }
-                            },
-                            y: {
-                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                                ticks: { color: '#8b85a1', font: { size: 10 } }
-                            }
-                        },
-                        plugins: {
-                            legend: {
-                                display: true,
-                                labels: {
-                                    color: '#8b85a1',
-                                    font: { size: 10, family: 'Inter' },
-                                    boxWidth: 12,
-                                    padding: 8,
-                                    filter: function(item) {
-                                        // Only show P/D expiry datasets in legend, hide Entry/Exit
-                                        return item.text && item.text.startsWith('P/D');
-                                    }
-                                }
-                            },
-                            tooltip: { 
-                                enabled: true,
-                                callbacks: {
-                                    title: function(tooltipItems) {
-                                        if (tooltipItems.length > 0) {
-                                            const raw = tooltipItems[0].raw;
-                                            const realDate = raw._realTime ? new Date(raw._realTime) : fromMarketX(tooltipItems[0].parsed.x);
-                                            const dateStr = realDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-                                            const timeStr = realDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-                                            return `${dateStr}  ${timeStr}`;
-                                        }
-                                        return '';
-                                    },
-                                    label: function(context) {
-                                        const dsLabel = context.dataset.label;
-                                        if (dsLabel && dsLabel.startsWith('P/D')) return `${dsLabel}: ${context.parsed.y}`;
-                                        
-                                        const raw = context.raw;
-                                        if (raw && raw.tradeDetails) {
-                                            const t = raw.tradeDetails;
-                                            if (dsLabel === 'Entry') {
-                                                return [
-                                                    `ENTRY (${t.direction}) @ ${t.entryTime}`,
-                                                    `Qty: ${t.lots||1}L (${t.qty}) | Strike: ${t.strike}`,
-                                                    `Spot: ${t.entrySpot} | CE: ${t.entryCall} | PE: ${t.entryPut}`,
-                                                    `P/D: ${context.parsed.y}`
-                                                ];
-                                            } else if (dsLabel === 'Exit') {
-                                                return [
-                                                    `EXIT (${t.direction}) @ ${t.exitTime}`,
-                                                    `Qty: ${t.lots||1}L (${t.qty}) | Strike: ${t.strike}`,
-                                                    `Spot: ${t.exitSpot} | CE: ${t.exitCall} | PE: ${t.exitPut}`,
-                                                    `Net P/L: ₹${t.finalPnL ? t.finalPnL.toFixed(2) : '0.00'}`,
-                                                    `P/D: ${context.parsed.y}`
-                                                ];
-                                            }
-                                        }
-                                        return `${dsLabel}: ${context.parsed.y}`;
-                                    }
-                                }
-                            },
-                            zoom: {
-                                pan: { enabled: true, mode: 'x' },
-                                zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }
-                            }
-                        }
-                    },
-                    plugins: [dateChangePlugin]
-                });
+                return null;
             }
 
             function initCharts() {
                 for (let i = 0; i < NUM_BOXES; i++) {
-                    boxChart[i] = createChartInstance(`miniCalcChart${i}`, CHART_COLORS[i]);
+                    boxChart[i] = null;
                 }
             }
 
@@ -3388,6 +3322,15 @@
             // ─── Box Polling Loop ───
             let isHttpFallbackActive = false;
             let wsFallbackTimer = null;
+            let wsWatchdogTimer = null;
+
+            function resetWsWatchdog() {
+                if (wsWatchdogTimer) clearTimeout(wsWatchdogTimer);
+                wsWatchdogTimer = setTimeout(() => {
+                    console.warn("[WS] Watchdog timed out (no messages for 6 seconds). Falling back to HTTP polling.");
+                    switchToHttpPolling();
+                }, 6000);
+            }
 
             function switchToHttpPolling() {
                 if (isHttpFallbackActive) return;
@@ -3414,7 +3357,11 @@
                 let wsUrl;
                 if (_tradeApiBase) {
                     try {
-                        const urlObj = new URL(_tradeApiBase);
+                        let normalizedBase = _tradeApiBase;
+                        if (!/^https?:\/\//i.test(normalizedBase)) {
+                            normalizedBase = 'http://' + normalizedBase;
+                        }
+                        const urlObj = new URL(normalizedBase);
                         const wsProtocol = urlObj.protocol === 'https:' ? 'wss:' : 'ws:';
                         wsUrl = `${wsProtocol}//${urlObj.host}/ws/live`;
                     } catch (e) {
@@ -3468,6 +3415,8 @@
                         clearTimeout(wsReconnectTimer);
                         wsReconnectTimer = null;
                     }
+                    // Start watchdog on successful connection
+                    resetWsWatchdog();
                     // Resubscribe all active boxes
                     for (let idx = 0; idx < NUM_BOXES; idx++) {
                         sendSubscriptionRequest(idx);
@@ -3475,6 +3424,7 @@
                 };
                 
                 liveSocket.onmessage = (event) => {
+                    resetWsWatchdog();
                     try {
                         const msg = JSON.parse(event.data);
                         if (msg.type === 'update') {
@@ -3528,6 +3478,10 @@
                         clearTimeout(wsFallbackTimer);
                         wsFallbackTimer = null;
                     }
+                    if (wsWatchdogTimer) {
+                        clearTimeout(wsWatchdogTimer);
+                        wsWatchdogTimer = null;
+                    }
                     
                     // If we are not already on HTTP fallback, trigger it on close
                     switchToHttpPolling();
@@ -3557,6 +3511,10 @@
                     if (wsFallbackTimer) {
                         clearTimeout(wsFallbackTimer);
                         wsFallbackTimer = null;
+                    }
+                    if (wsWatchdogTimer) {
+                        clearTimeout(wsWatchdogTimer);
+                        wsWatchdogTimer = null;
                     }
                     switchToHttpPolling();
                 };
@@ -3611,6 +3569,7 @@
                 boxChartVisible[idx] = !boxChartVisible[idx];
                 const container = el(`chartContainer${idx}`);
                 const btn = el(`toggleChart${idx}`);
+                if (!container || !btn) return;
                 if (boxChartVisible[idx]) {
                     container.style.display = 'block';
                     btn.innerHTML = '<i class="ph ph-caret-down"></i> Hide Chart';
@@ -3854,6 +3813,7 @@
                         btnEl.innerText = 'Set';
                         btnEl.className = 'bg-red-700 hover:bg-red-600 text-white text-xs px-3 py-1.5 rounded transition';
                     }
+                    saveBoxConfig();
                     return;
                 }
 
@@ -3879,9 +3839,11 @@
                 if (typeof updateWidgetUI === 'function') {
                     updateWidgetUI();
                 }
+                saveBoxConfig();
             }
 
             function checkAlert(idx, currentDiff) {
+                let changed = false;
                 // Check Upside Monitor (P/D rises to or above target)
                 if (boxAlertUpActive[idx] && boxAlertUpTarget[idx] !== null && !boxAlertUpTriggered[idx]) {
                     if (currentDiff >= boxAlertUpTarget[idx]) {
@@ -3903,6 +3865,7 @@
                         } else {
                             console.log(msg);
                         }
+                        changed = true;
                     }
                 }
 
@@ -3927,7 +3890,12 @@
                         } else {
                             console.log(msg);
                         }
+                        changed = true;
                     }
+                }
+                
+                if (changed) {
+                    saveBoxConfig();
                 }
             }
 
@@ -3980,6 +3948,7 @@
 
             // Auto-start boxes from backend config
             loadBoxConfig();
+            loadLiveTrackerState();
 
             function enterLivePos(idx) {
                 const data = lastFetchData[idx];
@@ -4045,6 +4014,10 @@
                 // Keep Entry button visible for concurrent trades
                 el(`btnLiveExit${idx}`).style.display = 'block';
                 
+                // Save box config and live tracker state for reload recovery
+                saveBoxConfig();
+                saveLiveTrackerState();
+                
                 // Immediately force a box fetch to transition to the locked strike
                 triggerFetch(idx);
             }
@@ -4092,6 +4065,7 @@
                 }
 
                 liveTrackerState[idx].active = false;
+                saveLiveTrackerState();
                 
                 el(`livePanel${idx}`).style.display = 'none';
                 el(`btnLiveExit${idx}`).style.display = 'none';
@@ -4157,6 +4131,7 @@
                     el(`livePanel${idx}`).style.display = 'none';
                     el(`btnLiveExit${idx}`).style.display = 'none';
                 }
+                saveLiveTrackerState();
             }
 
             async function closeAllPositions(idx) {
@@ -4235,6 +4210,7 @@
 
                 if (closedCount > 0) {
                     saveTradeBook();
+                    saveLiveTrackerState();
                     renderTradeDetails(idx, lastFetchData[idx]);
                 }
 
@@ -4278,6 +4254,8 @@
 
                 el(`strikeInput${idx}`).value = trade.strike;
                 triggerFetch(idx);
+                saveBoxConfig();
+                saveLiveTrackerState();
             }
 
             // ─── Save all box data when page closes ───
@@ -5104,6 +5082,8 @@
 
             fetchServerIP();
         </script>
+        <!-- Auto-Refresh & Cache storage cleanup -->
+        <script src="auto_refresh.js"></script>
 </body>
 
 </html>
