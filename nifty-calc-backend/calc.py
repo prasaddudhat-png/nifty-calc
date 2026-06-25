@@ -2437,7 +2437,7 @@ def get_cached_live_price(token: str, max_age: float = 0.33) -> float:
                 is_ws_active = ws_manager and ws_manager.is_connected
             except:
                 pass
-            allowed_age = (300.0 if is_ws_active else 5.0) if source == "ws" else max_age
+            allowed_age = (300.0 if is_ws_active else 5.0) if source == "ws" else max(max_age, 2.0)
             if time.time() - timestamp < allowed_age:
                 return price
         elif isinstance(val, (int, float)):
