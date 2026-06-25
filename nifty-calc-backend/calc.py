@@ -2137,6 +2137,7 @@ def debug_ws():
         "is_connected": ws_manager.is_connected if 'ws_manager' in globals() else False,
         "subscribed_tokens": [str(k) for k in ws_manager.subscribed_tokens.keys()] if 'ws_manager' in globals() else [],
         "cache_size": len(live_price_cache) if 'live_price_cache' in globals() else 0,
+        "live_price_cache": live_price_cache if 'live_price_cache' in globals() else {},
         "auth_token_present": auth_token is not None,
         "feed_token_present": feed_token is not None,
         "last_login_time": last_login_time,
