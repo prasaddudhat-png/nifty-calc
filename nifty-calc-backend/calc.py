@@ -2130,6 +2130,19 @@ def get_local_ip():
 def system_ip():
     return {"success": True, "ip": get_local_ip()}
 
+@app.get("/api/debug/ws")
+def debug_ws():
+    return {
+        "success": True,
+        "is_connected": ws_manager.is_connected if 'ws_manager' in globals() else False,
+        "subscribed_tokens": [str(k) for k in ws_manager.subscribed_tokens.keys()] if 'ws_manager' in globals() else [],
+        "cache_size": len(live_price_cache) if 'live_price_cache' in globals() else 0,
+        "auth_token_present": auth_token is not None,
+        "feed_token_present": feed_token is not None,
+        "last_login_time": last_login_time,
+        "last_api_error": last_api_error
+    }
+
 @app.get("/api/trades")
 def get_trades(user: str = "User 1"):
     """Get active trades (OPEN/EXPIRED) or trades entered/exited today for a specific user."""
